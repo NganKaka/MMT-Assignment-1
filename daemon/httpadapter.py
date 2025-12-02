@@ -1,3 +1,4 @@
+import json
 from .request import Request
 from .response import Response
 from .dictionary import CaseInsensitiveDict
@@ -86,8 +87,8 @@ class HttpAdapter:
                 conn.close()
                 return
         
-        # --- Handle POST /login (Task 1 Cookie Session) ---
-        if req.method == "POST" and req.path == "/login":
+        # --- Handle POST /login (Task 1 Cookie Session) when no custom route ---
+        if req.method == "POST" and req.path == "/login" and not req.hook:
             body_str = req.body.decode("utf-8", errors="replace") if isinstance(req.body, (bytes, bytearray)) else str(req.body)
             print(f"[Login] Received body: {body_str}")
 
@@ -110,25 +111,48 @@ class HttpAdapter:
 
             conn.close()
             return
-        
         if req.hook:
             print("[HttpAdapter] hook in route-path METHOD {} PATH {}".format(req.hook._route_path,req.hook._route_methods))
-            #
-            # TODO: handle for App hook here
-            #
-            #login_result = req.hook(headers="bksysnet", body="get in touch")
-            # Pass real parsed headers/body to app hook
             hook_headers = getattr(req, "headers", {}) or {}
             hook_body = req.body.decode("utf-8", errors="replace") if isinstance(req.body, (bytes, bytearray)) else (req.body or "")
-            login_result = req.hook(headers=hook_headers, body=hook_body)
-            if login_result == "LOGIN_SUCCESS":
+            hook_result = req.hook(headers=hook_headers, body=hook_body)
+
+            status_code = 200
+            body_obj = hook_result
+
+            if isinstance(hook_result, tuple) and len(hook_result) == 2:
+                body_obj, status_code = hook_result
+
+            # Support legacy LOGIN_SUCCESS/FAILED for cookie task
+            if hook_result == "LOGIN_SUCCESS":
                 resp.headers['Set-Cookie'] = 'auth=true'
                 resp.status_code = 200 
                 resp.reason = "OK"
-                
-            elif login_result == "LOGIN_FAILED":
+            elif hook_result == "LOGIN_FAILED":
                 response = resp.build_unauthorized() 
                 conn.sendall(response)
+                conn.close()
+                return
+            else:
+                if isinstance(body_obj, dict):
+                    payload = json.dumps(body_obj).encode("utf-8")
+                    content_type = "application/json"
+                elif isinstance(body_obj, bytes):
+                    payload = body_obj
+                    content_type = "application/octet-stream"
+                else:
+                    payload = str(body_obj).encode("utf-8")
+                    content_type = "text/plain"
+
+                reasons = {200: "OK", 400: "Bad Request", 401: "Unauthorized", 404: "Not Found"}
+                reason = reasons.get(status_code, "OK" if status_code < 400 else "ERROR")
+                header = (
+                    f"HTTP/1.1 {status_code} {reason}\r\n"
+                    f"Content-Type: {content_type}\r\n"
+                    f"Content-Length: {len(payload)}\r\n"
+                    "\r\n"
+                )
+                conn.sendall(header.encode("utf-8") + payload)
                 conn.close()
                 return
         if not hasattr(resp, 'status_code') or resp.status_code is None:
