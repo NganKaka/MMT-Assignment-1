@@ -1,8 +1,95 @@
-<html><body>
+<!-- <html><body>
 <h1>Login</h1>
 <form method="POST" action="/login">
   Username: <input name="username" type="text"><br>
   Password: <input name="password" type="password"><br>
   <input type="submit" value="Login">
 </form>
-</body></html>
+</body></html> -->
+
+
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Login Chat P2P</title>
+    <style>
+        /* CSS đơn giản, nhìn giống form cổ điển */
+        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }
+        .login-box { background: white; padding: 40px; border: 1px solid #ccc; box-shadow: 3px 3px 10px #aaa; width: 300px; }
+        h1 { text-align: center; margin-bottom: 20px; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background-color: #4CAF50; color: white; border: none; margin-top: 20px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #45a049; }
+        .error { color: red; text-align: center; margin-top: 10px; display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="login-box">
+        <h1>Login System</h1>
+        
+        <label>Username:</label>
+        <input type="text" id="username" placeholder="Ví dụ: Hung" required>
+
+        <label>Password:</label>
+        <input type="password" id="password" placeholder="Mặc định: password" required>
+
+        <label>Port (Giả lập):</label>
+        <input type="number" id="port" value="9001" placeholder="9001, 9002..." required>
+
+        <button onclick="submitLogin()">Đăng nhập</button>
+        <div id="error-msg" class="error">Sai mật khẩu hoặc lỗi server!</div>
+    </div>
+
+    <script>
+        async function submitLogin() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const port = document.getElementById('port').value;
+            const errorDiv = document.getElementById('error-msg');
+
+            if (!username || !password || !port) {
+                alert("Vui lòng nhập đầy đủ thông tin!");
+                return;
+            }
+
+            try {
+                // 1. Gửi yêu cầu đăng nhập lên Server
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        peer_id: username,  // Server Python đọc cái này
+                        password: password,
+                        ip: "127.0.0.1",
+                        port: port          // Gửi port lên để server biết
+                    })
+                });
+
+                const data = await response.json();
+
+                // 2. Nếu đăng nhập thành công
+                if (response.ok && data.status !== 'error') {
+                    // Lưu thông tin vào bộ nhớ trình duyệt để trang Chat dùng
+                    localStorage.setItem('chat_username', username);
+                    localStorage.setItem('chat_port', port);
+                    
+                    // Chuyển hướng sang trang Chat
+                    window.location.href = "/chat.html";
+                } else {
+                    // Hiện lỗi nếu sai pass
+                    errorDiv.style.display = 'block';
+                    errorDiv.innerText = data.message || "Sai mật khẩu (password)!";
+                }
+            } catch (error) {
+                console.error(error);
+                errorDiv.style.display = 'block';
+                errorDiv.innerText = "Lỗi kết nối tới Server!";
+            }
+        }
+    </script>
+</body>
+</html>
