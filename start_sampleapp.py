@@ -167,7 +167,17 @@ def broadcast_peer(headers="guest", body="anonymous"):
     ok, peer_id = _require_peer(data)
     if not ok:
         return {"status": "error", "message": peer_id}, 400
-
+    
+    # --- START ACCESS CONTROL ---
+    # Kiểm tra xem người gửi có phải là admin không
+    if peer_id != "admin":
+        print(f"[AccessControl] Denied broadcast request from {peer_id}")
+        return {
+            "status": "error", 
+            "message": "Access Denied: Only 'admin' can broadcast."
+        }, 403 
+    # --- END ACCESS CONTROL ---
+    
     channel = data.get("channel")
     message = data.get("message", "")
     if not channel:
@@ -227,6 +237,37 @@ def send_peer(headers="guest", body="anonymous"):
     if not target:
         return {"status": "error", "message": "target missing"}, 400
 
+    # ================= ACCESS CONTROL LOGIC =================
+    
+    # TRƯỜNG HỢP 1: Xử lý lệnh đặc biệt "/kick" (Chỉ Admin mới được dùng)
+    if message.startswith("/kick"):
+        # Authorization Check: Bạn là ai?
+        if peer_id != "admin":
+            print(f"[AccessControl] User {peer_id} tried to use admin command.")
+            return {
+                "status": "error", 
+                "message": "⛔ ACCESS DENIED: Only 'admin' can use /kick command."
+            }, 403 # Forbidden
+        
+        # Nếu là admin -> Thực thi lệnh
+        target_to_kick = message.split(" ")[1] if len(message.split(" ")) > 1 else target
+        
+        with _lock:
+            if target_to_kick in _peers:
+                del _peers[target_to_kick] # Xóa user khỏi danh sách
+                print(f"[Admin] User {target_to_kick} was kicked by Admin.")
+                
+                # Gửi thông báo lại cho Admin
+                return {
+                    "status": "ok", 
+                    "to": target, 
+                    "message": f"SYSTEM: User {target_to_kick} has been kicked out."
+                }, 200
+            else:
+                 return {"status": "error", "message": "User not found to kick"}, 404
+
+    # ================= END ACCESS CONTROL =================
+    
     with _lock:
         if peer_id not in _peers:
             return {"status": "error", "message": "peer not authenticated"}, 401

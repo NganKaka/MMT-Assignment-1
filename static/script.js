@@ -360,21 +360,214 @@
 
 
 
+
+
+// juan 100%
+
+// let currentUser = null;
+// let currentTarget = null;
+// // Biến lưu trữ lịch sử chat của từng người
+// let chatHistory = {}; 
+
+// function startChatApp(user) {
+//     currentUser = user;
+//     console.log("Logged in as:", currentUser);
+    
+//     // Cập nhật danh sách online (3 giây/lần)
+//     fetchPeerList();
+//     setInterval(fetchPeerList, 3000);
+
+//     // Polling tin nhắn mới (2 giây/lần)
+//     fetchMessages();
+//     setInterval(fetchMessages, 2000);
+// }
+
+// // 1. Lấy danh sách Peer
+// async function fetchPeerList() {
+//     try {
+//         const response = await fetch('/connect-peer', {
+//             method: 'POST',
+//             headers: { 'Content-Type': 'application/json' },
+//             body: JSON.stringify({ peer_id: currentUser })
+//         });
+//         if (response.ok) {
+//             const data = await response.json();
+//             renderPeerList(data.peers);
+//         }
+//     } catch (error) { console.error(error); }
+// }
+
+// // 2. Render danh sách Peer
+// function renderPeerList(peers) {
+//     const listElement = document.getElementById('peer-list');
+//     if (!listElement) return;
+
+//     // Lưu lại trạng thái user đang chọn để không bị mất focus khi re-render
+//     const savedTarget = currentTarget;
+
+//     listElement.innerHTML = ''; 
+
+//     if (!peers || peers.length === 0) {
+//         listElement.innerHTML = '<li style="color: gray; padding: 10px;">Chưa có ai online...</li>';
+//         return;
+//     }
+
+//     peers.forEach(peer => {
+//         const li = document.createElement('li');
+//         li.className = 'peer-item';
+//         li.innerText = `${peer.peer_id} (${peer.ip}:${peer.port})`;
+        
+//         // Highlight người đang được chọn
+//         if (savedTarget === peer.peer_id) li.classList.add('active');
+
+//         // Kiểm tra xem người này có tin nhắn chưa đọc không (Optional UX)
+//         if (chatHistory[peer.peer_id] && peer.peer_id !== savedTarget) {
+//             // Logic hiển thị thông báo tin nhắn mới có thể thêm ở đây
+//             // li.style.fontWeight = "bold"; 
+//         }
+
+//         li.onclick = () => {
+//             // 1. Đổi người target
+//             currentTarget = peer.peer_id;
+            
+//             // 2. Cập nhật UI Header
+//             document.querySelector('.system-msg').innerText = `Đang chat với: ${currentTarget}`;
+            
+//             // 3. Highlight lại danh sách
+//             renderPeerList(peers); 
+
+//             // 4. QUAN TRỌNG: Load lại lịch sử chat của người này ra màn hình
+//             loadChatHistory(currentTarget);
+//         };
+//         listElement.appendChild(li);
+//     });
+// }
+
+// // 3. Hàm Load lịch sử chat ra màn hình (MỚI)
+// function loadChatHistory(peerId) {
+//     const msgWindow = document.getElementById('message-window');
+//     msgWindow.innerHTML = `<div class="system-msg">Đang chat với: ${peerId}</div>`;
+
+//     // Lấy tin nhắn từ bộ nhớ đệm
+//     const history = chatHistory[peerId] || [];
+    
+//     history.forEach(msg => {
+//         // Xác định loại tin nhắn (của mình hay của họ)
+//         const type = (msg.sender === currentUser) ? 'sent' : 'received';
+//         appendMessageToUI(msg.sender, msg.message, type);
+//     });
+// }
+
+// // 4. Gửi tin nhắn
+// async function sendMessage() {
+//     const input = document.getElementById('msg-input');
+//     const messageText = input.value.trim();
+
+//     if (!messageText) return; 
+//     if (!currentTarget) {
+//         alert("Vui lòng chọn một người để chat!");
+//         return;
+//     }
+
+//     // 1. Lưu tin nhắn gửi đi vào lịch sử của mình
+//     if (!chatHistory[currentTarget]) chatHistory[currentTarget] = [];
+//     chatHistory[currentTarget].push({
+//         sender: currentUser,
+//         message: messageText
+//     });
+
+//     // 2. Hiển thị lên màn hình ngay
+//     appendMessageToUI(currentUser, messageText, 'sent');
+
+//     // 3. Gửi lên Server
+//     try {
+//         const response = await fetch('/send-peer', {
+//             method: 'POST',
+//             headers: { 'Content-Type': 'application/json' },
+//             body: JSON.stringify({
+//                 peer_id: currentUser,
+//                 target: currentTarget,
+//                 message: messageText
+//             })
+//         });
+
+//         if (response.ok) {
+//             input.value = ''; 
+//         } else {
+//             alert("Lỗi gửi tin!");
+//         }
+//     } catch (error) { console.error(error); }
+// }
+
+// // 5. NHẬN TIN NHẮN (Đã nâng cấp logic phân loại)
+// async function fetchMessages() {
+//     try {
+//         const response = await fetch('/get-messages', {
+//             method: 'POST',
+//             headers: { 'Content-Type': 'application/json' },
+//             body: JSON.stringify({ peer_id: currentUser })
+//         });
+
+//         if (response.ok) {
+//             const data = await response.json();
+            
+//             if (data.messages && data.messages.length > 0) {
+//                 data.messages.forEach(msg => {
+//                     const sender = msg.sender;
+                    
+//                     // 1. Lưu tin nhắn vào lịch sử (dù đang chat hay không)
+//                     if (!chatHistory[sender]) chatHistory[sender] = [];
+//                     chatHistory[sender].push({
+//                         sender: sender,
+//                         message: msg.message
+//                     });
+
+//                     // 2. Chỉ hiển thị nếu ĐANG MỞ khung chat với người đó
+//                     if (currentTarget === sender) {
+//                         appendMessageToUI(sender, msg.message, 'received');
+//                     } else {
+//                         // Nếu không, có thể báo hiệu tin nhắn mới (console log hoặc UI effect)
+//                         console.log(`Có tin nhắn mới từ ${sender} nhưng đang ẩn.`);
+//                     }
+//                 });
+//             }
+//         }
+//     } catch (error) { console.error("Lỗi nhận tin:", error); }
+// }
+
+// // Hàm UI thuần túy: Vẽ 1 tin nhắn lên màn hình
+// function appendMessageToUI(sender, text, type) {
+//     const msgWindow = document.getElementById('message-window');
+//     if (!msgWindow) return;
+
+//     const msgDiv = document.createElement('div');
+//     msgDiv.className = `message ${type}`;
+    
+//     msgDiv.innerHTML = `
+//         <div class="msg-sender">${sender}</div>
+//         <div class="msg-content">${text}</div>
+//     `;
+    
+//     msgWindow.appendChild(msgDiv);
+//     msgWindow.scrollTop = msgWindow.scrollHeight;
+// }
+
+
+
+
 let currentUser = null;
 let currentTarget = null;
-// Biến lưu trữ lịch sử chat của từng người
-// Cấu trúc: { "dada": [ {sender: "dada", message: "hi"}, ... ], "hung": [...] }
 let chatHistory = {}; 
+// --- NEW: Biến lưu số lượng tin nhắn chưa đọc ---
+let unreadCounts = {}; 
 
 function startChatApp(user) {
     currentUser = user;
     console.log("Logged in as:", currentUser);
     
-    // Cập nhật danh sách online (3 giây/lần)
     fetchPeerList();
     setInterval(fetchPeerList, 3000);
 
-    // Polling tin nhắn mới (2 giây/lần)
     fetchMessages();
     setInterval(fetchMessages, 2000);
 }
@@ -399,9 +592,7 @@ function renderPeerList(peers) {
     const listElement = document.getElementById('peer-list');
     if (!listElement) return;
 
-    // Lưu lại trạng thái user đang chọn để không bị mất focus khi re-render
     const savedTarget = currentTarget;
-
     listElement.innerHTML = ''; 
 
     if (!peers || peers.length === 0) {
@@ -412,44 +603,40 @@ function renderPeerList(peers) {
     peers.forEach(peer => {
         const li = document.createElement('li');
         li.className = 'peer-item';
-        li.innerText = `${peer.peer_id} (${peer.ip}:${peer.port})`;
         
-        // Highlight người đang được chọn
+        // --- NEW: Hiển thị tên kèm số lượng tin chưa đọc (nếu có) ---
+        const count = unreadCounts[peer.peer_id] || 0;
+        if (count > 0) {
+            li.classList.add('has-unread'); // Thêm class CSS đỏ
+            li.innerText = `${peer.peer_id} (${count})`; // Hiển thị số lượng
+        } else {
+            li.innerText = `${peer.peer_id}`; // Hiển thị bình thường
+        }
+        
+        // Highlight người đang chọn
         if (savedTarget === peer.peer_id) li.classList.add('active');
 
-        // Kiểm tra xem người này có tin nhắn chưa đọc không (Optional UX)
-        if (chatHistory[peer.peer_id] && peer.peer_id !== savedTarget) {
-            // Logic hiển thị thông báo tin nhắn mới có thể thêm ở đây
-            // li.style.fontWeight = "bold"; 
-        }
-
         li.onclick = () => {
-            // 1. Đổi người target
             currentTarget = peer.peer_id;
             
-            // 2. Cập nhật UI Header
-            document.querySelector('.system-msg').innerText = `Đang chat với: ${currentTarget}`;
+            // --- NEW: Reset tin chưa đọc về 0 khi bấm vào xem ---
+            unreadCounts[currentTarget] = 0; 
             
-            // 3. Highlight lại danh sách
-            renderPeerList(peers); 
-
-            // 4. QUAN TRỌNG: Load lại lịch sử chat của người này ra màn hình
+            document.querySelector('.system-msg').innerText = `Đang chat với: ${currentTarget}`;
+            renderPeerList(peers); // Render lại để mất dấu đỏ
             loadChatHistory(currentTarget);
         };
         listElement.appendChild(li);
     });
 }
 
-// 3. Hàm Load lịch sử chat ra màn hình (MỚI)
+// 3. Hàm Load lịch sử
 function loadChatHistory(peerId) {
     const msgWindow = document.getElementById('message-window');
     msgWindow.innerHTML = `<div class="system-msg">Đang chat với: ${peerId}</div>`;
 
-    // Lấy tin nhắn từ bộ nhớ đệm
     const history = chatHistory[peerId] || [];
-    
     history.forEach(msg => {
-        // Xác định loại tin nhắn (của mình hay của họ)
         const type = (msg.sender === currentUser) ? 'sent' : 'received';
         appendMessageToUI(msg.sender, msg.message, type);
     });
@@ -466,17 +653,14 @@ async function sendMessage() {
         return;
     }
 
-    // 1. Lưu tin nhắn gửi đi vào lịch sử của mình
     if (!chatHistory[currentTarget]) chatHistory[currentTarget] = [];
     chatHistory[currentTarget].push({
         sender: currentUser,
         message: messageText
     });
 
-    // 2. Hiển thị lên màn hình ngay
     appendMessageToUI(currentUser, messageText, 'sent');
 
-    // 3. Gửi lên Server
     try {
         const response = await fetch('/send-peer', {
             method: 'POST',
@@ -496,7 +680,7 @@ async function sendMessage() {
     } catch (error) { console.error(error); }
 }
 
-// 5. NHẬN TIN NHẮN (Đã nâng cấp logic phân loại)
+// 5. NHẬN TIN NHẮN
 async function fetchMessages() {
     try {
         const response = await fetch('/get-messages', {
@@ -509,22 +693,28 @@ async function fetchMessages() {
             const data = await response.json();
             
             if (data.messages && data.messages.length > 0) {
+                // Có tin nhắn mới! Play âm thanh nếu muốn (optional)
+                // const audio = new Audio('notification.mp3'); audio.play();
+
                 data.messages.forEach(msg => {
                     const sender = msg.sender;
                     
-                    // 1. Lưu tin nhắn vào lịch sử (dù đang chat hay không)
                     if (!chatHistory[sender]) chatHistory[sender] = [];
                     chatHistory[sender].push({
                         sender: sender,
                         message: msg.message
                     });
 
-                    // 2. Chỉ hiển thị nếu ĐANG MỞ khung chat với người đó
+                    // Nếu đang mở chat với người này -> Hiện lên
                     if (currentTarget === sender) {
                         appendMessageToUI(sender, msg.message, 'received');
                     } else {
-                        // Nếu không, có thể báo hiệu tin nhắn mới (console log hoặc UI effect)
-                        console.log(`Có tin nhắn mới từ ${sender} nhưng đang ẩn.`);
+                        // --- NEW: Nếu đang không xem -> Tăng biến đếm chưa đọc ---
+                        if (!unreadCounts[sender]) unreadCounts[sender] = 0;
+                        unreadCounts[sender]++;
+                        // Gọi render để hiện dấu đỏ ngay lập tức
+                        // (Hoặc đợi 3s sau nó tự cập nhật theo setInterval)
+                        showToast(`📩 ${sender}: ${msg.message}`);
                     }
                 });
             }
@@ -532,19 +722,38 @@ async function fetchMessages() {
     } catch (error) { console.error("Lỗi nhận tin:", error); }
 }
 
-// Hàm UI thuần túy: Vẽ 1 tin nhắn lên màn hình
 function appendMessageToUI(sender, text, type) {
     const msgWindow = document.getElementById('message-window');
     if (!msgWindow) return;
 
     const msgDiv = document.createElement('div');
     msgDiv.className = `message ${type}`;
-    
-    msgDiv.innerHTML = `
-        <div class="msg-sender">${sender}</div>
-        <div class="msg-content">${text}</div>
-    `;
-    
+    msgDiv.innerHTML = `<div class="msg-sender">${sender}</div><div class="msg-content">${text}</div>`;
     msgWindow.appendChild(msgDiv);
     msgWindow.scrollTop = msgWindow.scrollHeight;
+}
+
+
+function showToast(message) {
+    // Tạo thẻ div cho thông báo
+    const toast = document.createElement("div");
+    toast.innerText = message;
+    toast.style.position = "fixed";
+    toast.style.top = "20px";
+    toast.style.right = "20px";
+    toast.style.background = "#333";
+    toast.style.color = "#fff";
+    toast.style.padding = "10px 20px";
+    toast.style.borderRadius = "5px";
+    toast.style.boxShadow = "0 2px 5px rgba(0,0,0,0.3)";
+    toast.style.zIndex = "1000";
+    toast.style.transition = "opacity 0.5s";
+
+    document.body.appendChild(toast);
+
+    // Tự động tắt sau 3 giây
+    setTimeout(() => {
+        toast.style.opacity = "0";
+        setTimeout(() => document.body.removeChild(toast), 500);
+    }, 3000);
 }
