@@ -193,18 +193,31 @@ class Request():
         except Exception:
             return None, None, None
              
+    # def prepare_headers(self, request):
+    #     """Prepares the given HTTP headers."""
+    #     lines = request.split('\r\n')
+    #     headers = {}
+    #     # Skip the request line (index 0)
+    #     for line in lines[1:]:
+    #         if ': ' in line:
+    #             key, val = line.split(': ', 1)
+    #             headers[key.lower()] = val
+    #         elif ':' in line: # Handle cases with no space after colon
+    #             key, val = line.split(':', 1)
+    #             headers[key.lower()] = val.strip()
+    #     return headers
+    
     def prepare_headers(self, request):
         """Prepares the given HTTP headers."""
         lines = request.split('\r\n')
         headers = {}
-        # Skip the request line (index 0)
+        # Bỏ qua dòng đầu tiên (Request Line)
         for line in lines[1:]:
-            if ': ' in line:
-                key, val = line.split(': ', 1)
-                headers[key.lower()] = val
-            elif ':' in line: # Handle cases with no space after colon
+            # Tìm dấu hai chấm đầu tiên
+            if ':' in line:
                 key, val = line.split(':', 1)
-                headers[key.lower()] = val.strip()
+                # Quan trọng: strip() để xóa khoảng trắng thừa ở 2 đầu
+                headers[key.strip().lower()] = val.strip()
         return headers
 
     def prepare(self, request, routes=None):

@@ -69,46 +69,126 @@ def _require_peer(body_map: Dict[str, str]) -> Tuple[bool, str]:
 #     return {"status": "ok", "peer_id": peer_id}, 200
 
 
+# @app.route("/login", methods=["POST"])
+# def login(headers="guest", body="anonymous"):
+#     """
+#     Authenticate a peer with a simple shared secret (password='password').
+#     Integrates Cookie Logic from Task 2.1.
+#     """
+#     data = _parse_body(body or "")
+    
+#     # Logic kiểm tra user/pass của Task 2.1
+#     # Nếu form gửi lên dạng username=admin&password=password
+#     if "username" in data and data["username"] == "admin" and data.get("password") == "password":
+#         # Đây là login kiểu Admin cho Task 2.1 -> Trả về tín hiệu để set Cookie
+#         return "LOGIN_SUCCESS"
+
+#     # Logic kiểm tra peer_id cho Task 2.2 (Chat)
+#     ok, peer_id = _require_peer(data)
+#     if not ok:
+#         # Nếu không có peer_id và cũng không phải admin -> Lỗi
+#         return {"status": "error", "message": peer_id}, 400
+
+#     password = data.get("password")
+#     if password != "password":
+#         print(f"[SampleApp] Login FAILED for peer: {peer_id}")
+#         return {"status": "error", "message": "invalid credentials"}, 401
+
+#     ip = data.get("ip") or headers.get("host", "unknown")
+#     port = data.get("port", "")
+
+#     with _lock:
+#         _peers[peer_id] = {"ip": ip, "port": port, "channels": set()}
+
+#     print(f"[SampleApp] Login SUCCESS for peer: {peer_id}")
+    
+#     # QUAN TRỌNG: Để kết hợp cả 2, ta cần trả về tín hiệu thành công
+#     # Nhưng vì Task 2.2 cần JSON, còn Task 2.1 cần Cookie.
+#     # Ta sẽ sửa code một chút để hỗ trợ cả hai trong HttpAdapter (sẽ nói ở dưới),
+#     # hoặc đơn giản là trả về chuỗi đặc biệt này nếu bạn muốn set cookie.
+    
+#     # Tuy nhiên, với chat App P2P, thường Client dùng JSON.
+#     return {"status": "ok", "peer_id": peer_id}, 200
+
+
+
+# @app.route("/login", methods=["POST"])
+# def login(headers="guest", body="anonymous"):
+#     """
+#     Xử lý đăng nhập Hybrid:
+#     - Task 1: Nếu là admin -> Trả về LOGIN_SUCCESS để set Cookie.
+#     - Task 2: Nếu là user khác -> Trả về JSON để vào Chat.
+#     """
+#     data = _parse_body(body or "")
+    
+#     # --- LOGIC CHO TASK 1 (Bắt buộc phải đúng admin/password) ---
+#     if data.get("username") == "admin" and data.get("password") == "password":
+#         print("[Auth] Admin login detected -> Task 1 Cookie Mode")
+#         # Trả về chuỗi này để HttpAdapter nhận diện và Set-Cookie: auth=true
+#         return "LOGIN_SUCCESS"
+
+#     # --- LOGIC CHO TASK 2 (Các user chat khác) ---
+#     # User chat bắt buộc phải có peer_id (hoặc username)
+#     peer_id = data.get("peer_id") or data.get("username")
+    
+#     if not peer_id:
+#         return {"status": "error", "message": "Missing username/peer_id"}, 400
+
+#     # Kiểm tra password chung (Shared secret)
+#     if data.get("password") == "password":
+#         # Lưu thông tin peer để chat
+#         ip = data.get("ip") or headers.get("host", "unknown")
+#         port = data.get("port", "")
+#         with _lock:
+#             _peers[peer_id] = {"ip": ip, "port": port, "channels": set()}
+            
+#         print(f"[Auth] Peer login: {peer_id} -> Task 2 Chat Mode")
+#         # Trả về JSON để Frontend Chat hoạt động
+#         return {"status": "ok", "peer_id": peer_id}, 200
+    
+#     # --- LOGIC SAI PASSWORD (Chặn hết) ---
+#     print(f"[Auth] Login failed for {peer_id}")
+#     return {"status": "error", "message": "Invalid credentials"}, 401
+
+
+
+
+
 @app.route("/login", methods=["POST"])
 def login(headers="guest", body="anonymous"):
     """
-    Authenticate a peer with a simple shared secret (password='password').
-    Integrates Cookie Logic from Task 2.1.
+    Xử lý đăng nhập Hybrid (Sửa lỗi nhận diện Admin)
     """
     data = _parse_body(body or "")
     
-    # Logic kiểm tra user/pass của Task 2.1
-    # Nếu form gửi lên dạng username=admin&password=password
-    if "username" in data and data["username"] == "admin" and data.get("password") == "password":
-        # Đây là login kiểu Admin cho Task 2.1 -> Trả về tín hiệu để set Cookie
+    # Lấy tên đăng nhập (dù frontend gửi là 'username' hay 'peer_id')
+    current_user = data.get("username") or data.get("peer_id")
+    password = data.get("password")
+
+    print(f"[Auth] Debug: Input user='{current_user}', pass='{password}'")
+
+    # --- LOGIC CHO TASK 1 (ADMIN) ---
+    # Nếu tên là admin và pass đúng -> Kích hoạt Task 1
+    if current_user == "admin" and password == "password":
+        print("[Auth] Admin login detected -> Task 1 Cookie Mode")
+        # Trả về tín hiệu để HttpAdapter set cookie
         return "LOGIN_SUCCESS"
 
-    # Logic kiểm tra peer_id cho Task 2.2 (Chat)
-    ok, peer_id = _require_peer(data)
-    if not ok:
-        # Nếu không có peer_id và cũng không phải admin -> Lỗi
-        return {"status": "error", "message": peer_id}, 400
+    # --- LOGIC CHO TASK 2 (CHAT) ---
+    if not current_user:
+        return {"status": "error", "message": "Missing username/peer_id"}, 400
 
-    password = data.get("password")
-    if password != "password":
-        print(f"[SampleApp] Login FAILED for peer: {peer_id}")
-        return {"status": "error", "message": "invalid credentials"}, 401
-
-    ip = data.get("ip") or headers.get("host", "unknown")
-    port = data.get("port", "")
-
-    with _lock:
-        _peers[peer_id] = {"ip": ip, "port": port, "channels": set()}
-
-    print(f"[SampleApp] Login SUCCESS for peer: {peer_id}")
+    if password == "password":
+        ip = data.get("ip") or headers.get("host", "unknown")
+        port = data.get("port", "")
+        with _lock:
+            _peers[current_user] = {"ip": ip, "port": port, "channels": set()}
+            
+        print(f"[Auth] Peer login: {current_user} -> Task 2 Chat Mode")
+        return {"status": "ok", "peer_id": current_user}, 200
     
-    # QUAN TRỌNG: Để kết hợp cả 2, ta cần trả về tín hiệu thành công
-    # Nhưng vì Task 2.2 cần JSON, còn Task 2.1 cần Cookie.
-    # Ta sẽ sửa code một chút để hỗ trợ cả hai trong HttpAdapter (sẽ nói ở dưới),
-    # hoặc đơn giản là trả về chuỗi đặc biệt này nếu bạn muốn set cookie.
-    
-    # Tuy nhiên, với chat App P2P, thường Client dùng JSON.
-    return {"status": "ok", "peer_id": peer_id}, 200
+    print(f"[Auth] Login failed for {current_user}")
+    return {"status": "error", "message": "Invalid credentials"}, 401
 
 
 @app.route("/add-list", methods=["POST"])
