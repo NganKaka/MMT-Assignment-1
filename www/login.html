@@ -8,7 +8,7 @@
 </body></html> -->
 
 
-
+<!-- 
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -88,6 +88,150 @@
                 console.error(error);
                 errorDiv.style.display = 'block';
                 errorDiv.innerText = "Lỗi kết nối tới Server!";
+            }
+        }
+    </script>
+</body>
+</html> -->
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Login Chat P2P</title>
+    <style>
+        /* CSS đơn giản, nhìn giống form cổ điển */
+        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }
+        .login-box { background: white; padding: 40px; border: 1px solid #ccc; box-shadow: 3px 3px 10px #aaa; width: 300px; }
+        h1 { text-align: center; margin-bottom: 20px; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; background-color: #4CAF50; color: white; border: none; margin-top: 20px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #45a049; }
+        .error { color: red; text-align: center; margin-top: 10px; display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="login-box">
+        <h1>Login System</h1>
+        
+        <!-- [MỚI] Thêm ô nhập IP -->
+        <label>IP Address:</label>
+        <input type="text" id="ip-addr" value="127.0.0.1" placeholder="Nhập IP (VD: 127.0.0.1)" required>
+
+        <label>Port (Giả lập):</label>
+        <input type="number" id="port" value="9001" placeholder="9001, 9002..." required>
+
+        <label>Username:</label>
+        <input type="text" id="username" placeholder="Ví dụ: Hung" required>
+
+        <label>Password:</label>
+        <input type="password" id="password" placeholder="Mặc định: password" required>
+
+        <button onclick="submitLogin()">Đăng nhập</button>
+        <div id="error-msg" class="error">Sai mật khẩu hoặc lỗi server!</div>
+    </div>
+
+    <script>
+        async function submitLogin() {
+            // 1. Lấy giá trị từ các ô nhập liệu
+            const ip = document.getElementById('ip-addr').value.trim(); // [MỚI] Lấy IP và xóa khoảng trắng thừa
+            const port = document.getElementById('port').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value.trim();
+            const errorDiv = document.getElementById('error-msg');
+
+            // Reset thông báo lỗi cũ
+            errorDiv.style.display = 'none';
+
+            // Kiểm tra dữ liệu đầu vào
+            if (!username || !password || !port || !ip) {
+                alert("Vui lòng nhập đầy đủ IP, Port, Username và Password!");
+                return;
+            }
+
+            try {
+                // 2. Gửi yêu cầu đăng nhập lên Server
+                // Lưu ý: Cổng server (tracker) mặc định là 8000
+                const response = await fetch('/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        peer_id: username,  
+                        username: username, // Gửi cả 2 trường để chắc chắn server nhận được
+                        password: password,
+                        ip: ip,             // [MỚI] Gửi IP người dùng nhập lên server
+                        port: port          
+                    })
+                });
+
+                // Xử lý phản hồi từ server
+                // Vì server có thể trả về JSON hoặc Text ("LOGIN_SUCCESS") tùy vào loại tài khoản
+                let data;
+                const contentType = response.headers.get("content-type");
+                
+                if (response.ok) {
+                    if (contentType && contentType.includes("application/json")) {
+                        data = await response.json();
+                    } else {
+                        // Trường hợp trả về text (cho Admin Task 1)
+                        const text = await response.text();
+                        // Giả sử server trả về "LOGIN_SUCCESS" cho admin
+                        if (text.includes("SUCCESS")) {
+                            data = { status: "ok" };
+                        } else {
+                             // Fallback nếu text không phải success
+                             try {
+                                 data = JSON.parse(text);
+                             } catch(e) {
+                                 data = { status: "error", message: text };
+                             }
+                        }
+                    }
+
+                    // 3. Nếu đăng nhập thành công
+                    if (data.status === 'ok' || data.status === 'Login Successful') {
+                        // Lưu thông tin vào bộ nhớ trình duyệt để trang Chat dùng
+                        localStorage.setItem('chat_username', username);
+                        localStorage.setItem('chat_ip', ip);     // [MỚI] Lưu IP lại
+                        localStorage.setItem('chat_port', port);
+                        
+                        // Chuyển hướng
+                        // Nếu là Admin -> trang index.html, ngược lại -> chat.html
+                        if (username === 'admin') {
+                            window.location.href = "/index.html";
+                        } else {
+                            window.location.href = "/chat.html";
+                        }
+                    } else {
+                        // Hiện lỗi logic từ server (ví dụ sai pass)
+                        errorDiv.style.display = 'block';
+                        errorDiv.innerText = data.message || "Đăng nhập thất bại!";
+                    }
+                } else {
+                    // Xử lý lỗi HTTP (401, 400, 500)
+                    if (contentType && contentType.includes("application/json")) {
+                         data = await response.json();
+                         errorDiv.innerText = data.message || `Lỗi server: ${response.status}`;
+                    } else {
+                         const text = await response.text();
+                         errorDiv.innerText = text || `Lỗi server: ${response.status}`;
+                    }
+                    errorDiv.style.display = 'block';
+                }
+
+            } catch (error) {
+                console.error("Fetch error:", error);
+                errorDiv.style.display = 'block';
+                errorDiv.innerText = "Lỗi kết nối tới Server! Kiểm tra server tracker đã bật chưa.";
             }
         }
     </script>
