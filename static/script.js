@@ -820,6 +820,250 @@
 
 
 
+// let currentUser = null;
+// let currentTarget = null;
+// let currentType = null; // 'direct' hoặc 'channel'
+// let chatHistory = {}; 
+// let unreadCounts = {}; 
+
+// function startChatApp(user) {
+//     currentUser = user;
+//     console.log("Logged in as:", currentUser);
+    
+//     loadHistoryFromLocal();
+//     // Mặc định vào kênh General
+//     switchChat('General', 'channel');
+
+//     fetchPeerList();
+//     setInterval(fetchPeerList, 3000);
+
+//     fetchMessages();
+//     setInterval(fetchMessages, 2000);
+// }
+
+// // 1. LẤY DANH SÁCH USER
+// async function fetchPeerList() {
+//     try {
+//         // Dùng POST để tương thích code backend mới
+//         const response = await fetch('/get-list', { 
+//             method: 'POST',
+//             headers: { 'Content-Type': 'application/json' },
+//             body: JSON.stringify({}) 
+//         });
+
+//         if (response.ok) {
+//             const data = await response.json();
+//             // Backend trả về {status: "ok", peers: [...]}
+//             if (data.peers) {
+//                 renderPeerList(data.peers);
+//             }
+//         }
+//     } catch (error) { console.error("Lỗi lấy peer:", error); }
+// }
+
+// function renderPeerList(peers) {
+//     const listElement = document.getElementById('peer-list');
+//     listElement.innerHTML = ''; 
+
+//     peers.forEach(peer => {
+//         // Không hiện bản thân
+//         if(peer.name === currentUser) return;
+
+//         const li = document.createElement('li');
+//         li.className = 'peer-item';
+        
+//         // Notification
+//         const count = unreadCounts[peer.name] || 0;
+//         if (count > 0) {
+//             li.classList.add('has-unread');
+//             li.innerText = `${peer.name} (${count})`;
+//         } else {
+//             li.innerText = `${peer.name}`;
+//         }
+
+//         // Active state
+//         if (currentTarget === peer.name && currentType === 'direct') {
+//             li.classList.add('active');
+//         }
+
+//         li.onclick = () => {
+//             switchChat(peer.name, 'direct');
+//         };
+//         listElement.appendChild(li);
+//     });
+// }
+
+// // 2. CHUYỂN ĐỔI CHAT
+// function switchChat(target, type) {
+//     currentTarget = target;
+//     currentType = type;
+    
+//     // Reset unread
+//     unreadCounts[target] = 0;
+
+//     // Highlight UI
+//     // Reset active class
+//     document.querySelectorAll('.peer-item, .channel-item').forEach(el => el.classList.remove('active'));
+    
+//     // Tìm element để add active (Chỉ là visual)
+//     if (type === 'channel') {
+//         const el = document.querySelector('.channel-item'); // General là cái đầu tiên
+//         if(el) el.classList.add('active');
+//     } else {
+//         // Render lại peer list để cập nhật active class
+//         // (Hoặc đợi 3s sau nó tự cập nhật)
+//     }
+
+//     const prefix = type === 'channel' ? '📢 Kênh: ' : '👤 Chat với: ';
+//     document.querySelector('.system-msg').innerText = prefix + target;
+    
+//     loadChatHistory(target);
+// }
+
+// // 3. GỬI TIN NHẮN
+// async function sendMessage() {
+//     const input = document.getElementById('msg-input');
+//     const messageText = input.value.trim();
+//     if (!messageText || !currentTarget) return;
+
+//     // Lưu vào lịch sử hiển thị
+//     appendMessageToUI(currentUser, messageText, 'sent');
+//     if (!chatHistory[currentTarget]) chatHistory[currentTarget] = [];
+//     chatHistory[currentTarget].push({ sender: currentUser, msg: messageText });
+
+//     saveHistoryToLocal(); 
+
+//     const url = currentType === 'direct' ? '/send-peer' : '/broadcast-peer';
+//     const body = {
+//         sender: currentUser,
+//         msg: messageText,
+//         target: currentType === 'direct' ? currentTarget : undefined
+//     };
+
+//     try {
+//         await fetch(url, {
+//             method: 'POST',
+//             headers: { 'Content-Type': 'application/json' },
+//             body: JSON.stringify(body)
+//         });
+//         input.value = '';
+//     } catch (error) { console.error(error); }
+// }
+
+// // 4. NHẬN TIN NHẮN
+// async function fetchMessages() {
+//     if (!currentUser) return;
+
+//     try {
+//         const response = await fetch('/get-messages', {
+//             method: 'POST',
+//             headers: { 'Content-Type': 'application/json' },
+//             body: JSON.stringify({ peer_id: currentUser }) 
+//         });
+
+//         if (response.ok) {
+//             const data = await response.json();
+            
+//             if (data.messages && data.messages.length > 0) {
+//                 data.messages.forEach(msg => {
+//                     // Logic xử lý người gửi
+//                     // Nếu là tin broadcast, server gửi: sender="General", msg="Hung: hello"
+//                     // Nếu là tin direct, server gửi: sender="Hung", msg="hello"
+                    
+//                     const senderID = msg.sender; // "General" hoặc tên User
+                    
+//                     // Lưu lịch sử
+//                     if (!chatHistory[senderID]) chatHistory[senderID] = [];
+//                     chatHistory[senderID].push({
+//                         sender: senderID, 
+//                         msg: msg.message // Nội dung tin
+//                     });
+
+//                     saveHistoryToLocal();
+
+//                     // Nếu đang xem đúng người đó -> Hiện lên
+//                     if (currentTarget === senderID) {
+//                         appendMessageToUI(senderID, msg.message, 'received');
+//                     } else {
+//                         // Thông báo
+//                         if (!unreadCounts[senderID]) unreadCounts[senderID] = 0;
+//                         unreadCounts[senderID]++;
+                        
+//                         // Nếu là tin nhắn từ Peer, cần update list để hiện dấu đỏ
+//                         if (senderID !== 'General') fetchPeerList();
+                        
+//                         // Toast
+//                         showToast(`📩 Tin mới từ ${senderID}`);
+//                     }
+//                 });
+//             }
+//         }
+//     } catch (error) { console.error("Lỗi polling:", error); }
+// }
+
+// function loadChatHistory(target) {
+//     const msgWindow = document.getElementById('message-window');
+//     msgWindow.innerHTML = `<div class="system-msg">${currentType === 'channel' ? '📢' : '👤'} ${target}</div>`;
+    
+//     const history = chatHistory[target] || [];
+//     history.forEach(m => {
+//         const type = m.sender === currentUser ? 'sent' : 'received';
+//         appendMessageToUI(m.sender, m.msg, type);
+//     });
+// }
+
+// function appendMessageToUI(sender, text, type) {
+//     const msgWindow = document.getElementById('message-window');
+//     const msgDiv = document.createElement('div');
+//     msgDiv.className = `message ${type}`;
+    
+//     // Nếu là 'sent' (mình gửi), không cần hiện tên
+//     // Nếu là 'received' (nhận):
+//     // - Nếu đang chat kênh General: sender là "General", text là "Hung: hello" -> Hiện text là đủ
+//     // - Nếu chat riêng: sender là "Hung" -> Hiện tên người gửi
+    
+//     let contentHTML = `<div class="msg-content">${text}</div>`;
+//     if (type === 'received' && currentType === 'direct') {
+//         contentHTML = `<div class="msg-sender">${sender}</div>` + contentHTML;
+//     }
+    
+//     msgDiv.innerHTML = contentHTML;
+//     msgWindow.appendChild(msgDiv);
+//     msgWindow.scrollTop = msgWindow.scrollHeight;
+// }
+
+// function showToast(message) {
+//     const toast = document.createElement("div");
+//     toast.innerText = message;
+//     toast.style.position = "fixed"; top = "20px"; right = "20px";
+//     toast.style.cssText = "position:fixed; top:20px; right:20px; background:#333; color:#fff; padding:10px 20px; border-radius:5px; z-index:9999;";
+//     document.body.appendChild(toast);
+//     setTimeout(() => { document.body.removeChild(toast); }, 3000);
+// }
+
+
+
+// function saveHistoryToLocal() {
+//     if (!currentUser) return;
+//     // Lưu lịch sử chat gắn liền với tên người dùng hiện tại
+//     // Để tránh việc đăng nhập nick khác lại thấy tin nhắn của nick cũ
+//     localStorage.setItem(`history_${currentUser}`, JSON.stringify(chatHistory));
+// }
+
+// function loadHistoryFromLocal() {
+//     if (!currentUser) return;
+//     const saved = localStorage.getItem(`history_${currentUser}`);
+//     if (saved) {
+//         chatHistory = JSON.parse(saved);
+//     }
+// }
+
+
+
+
+
+
+
 let currentUser = null;
 let currentTarget = null;
 let currentType = null; // 'direct' hoặc 'channel'
@@ -831,113 +1075,135 @@ function startChatApp(user) {
     console.log("Logged in as:", currentUser);
     
     loadHistoryFromLocal();
-    // Mặc định vào kênh General
-    switchChat('General', 'channel');
-
-    fetchPeerList();
-    setInterval(fetchPeerList, 3000);
+    
+    // Auto join channel list
+    fetchData();
+    setInterval(fetchData, 3000);
 
     fetchMessages();
     setInterval(fetchMessages, 2000);
 }
 
-// 1. LẤY DANH SÁCH USER
+async function fetchData() {
+    fetchPeerList();
+    fetchChannelList();
+}
+
+// --- XỬ LÝ PEER ---
 async function fetchPeerList() {
     try {
-        // Dùng POST để tương thích code backend mới
         const response = await fetch('/get-list', { 
-            method: 'POST',
+            method: 'POST', 
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({}) 
         });
-
         if (response.ok) {
             const data = await response.json();
-            // Backend trả về {status: "ok", peers: [...]}
-            if (data.peers) {
-                renderPeerList(data.peers);
-            }
+            renderPeerList(data.peers);
         }
-    } catch (error) { console.error("Lỗi lấy peer:", error); }
+    } catch (e) {}
 }
 
 function renderPeerList(peers) {
     const listElement = document.getElementById('peer-list');
     listElement.innerHTML = ''; 
-
     peers.forEach(peer => {
-        // Không hiện bản thân
         if(peer.name === currentUser) return;
-
         const li = document.createElement('li');
-        li.className = 'peer-item';
+        li.className = 'item-list peer-icon';
         
-        // Notification
         const count = unreadCounts[peer.name] || 0;
-        if (count > 0) {
-            li.classList.add('has-unread');
-            li.innerText = `${peer.name} (${count})`;
-        } else {
-            li.innerText = `${peer.name}`;
-        }
+        if (count > 0) { li.classList.add('has-unread'); li.innerText = `${peer.name} (${count})`; }
+        else { li.innerText = peer.name; }
 
-        // Active state
-        if (currentTarget === peer.name && currentType === 'direct') {
-            li.classList.add('active');
-        }
+        if (currentTarget === peer.name && currentType === 'direct') li.classList.add('active');
 
-        li.onclick = () => {
-            switchChat(peer.name, 'direct');
-        };
+        li.onclick = () => switchChat(peer.name, 'direct');
         listElement.appendChild(li);
     });
 }
 
-// 2. CHUYỂN ĐỔI CHAT
+// --- XỬ LÝ CHANNEL ---
+async function joinChannel() {
+    const name = document.getElementById('new-channel-name').value.trim();
+    if (!name) return;
+    try {
+        const response = await fetch('/add-list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ channel: name, username: currentUser })
+        });
+        if (response.ok) {
+            document.getElementById('new-channel-name').value = '';
+            fetchChannelList();
+            alert(`Đã tham gia: ${name}`);
+        }
+    } catch (e) { console.error(e); }
+}
+
+async function fetchChannelList() {
+    try {
+        const response = await fetch('/get-channels', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ peer_id: currentUser })
+        });
+        if (response.ok) {
+            const data = await response.json();
+            renderChannelList(data.channels);
+        }
+    } catch (e) {}
+}
+
+function renderChannelList(channels) {
+    const listElement = document.getElementById('channel-list');
+    listElement.innerHTML = '';
+    channels.forEach(ch => {
+        const li = document.createElement('li');
+        li.className = 'item-list channel-icon';
+        
+        // Check unread cho channel (nếu muốn)
+        const count = unreadCounts[ch] || 0;
+        if (count > 0) li.innerText = `${ch} (${count})`;
+        else li.innerText = ch;
+
+        if (currentTarget === ch && currentType === 'channel') li.classList.add('active');
+        li.onclick = () => switchChat(ch, 'channel');
+        listElement.appendChild(li);
+    });
+}
+
+// --- CHUYỂN ĐỔI ---
 function switchChat(target, type) {
     currentTarget = target;
     currentType = type;
+    unreadCounts[target] = 0; // Reset unread
     
-    // Reset unread
-    unreadCounts[target] = 0;
-
-    // Highlight UI
-    // Reset active class
-    document.querySelectorAll('.peer-item, .channel-item').forEach(el => el.classList.remove('active'));
-    
-    // Tìm element để add active (Chỉ là visual)
-    if (type === 'channel') {
-        const el = document.querySelector('.channel-item'); // General là cái đầu tiên
-        if(el) el.classList.add('active');
-    } else {
-        // Render lại peer list để cập nhật active class
-        // (Hoặc đợi 3s sau nó tự cập nhật)
-    }
-
-    const prefix = type === 'channel' ? '📢 Kênh: ' : '👤 Chat với: ';
-    document.querySelector('.system-msg').innerText = prefix + target;
-    
+    // Update UI
+    fetchData(); 
+    document.querySelector('.system-msg').innerText = 
+        (type === 'channel' ? '📢 ' : '👤 ') + target;
     loadChatHistory(target);
 }
 
-// 3. GỬI TIN NHẮN
+// --- GỬI TIN NHẮN ---
 async function sendMessage() {
     const input = document.getElementById('msg-input');
-    const messageText = input.value.trim();
-    if (!messageText || !currentTarget) return;
+    const msg = input.value.trim();
+    if (!msg || !currentTarget) return;
 
-    // Lưu vào lịch sử hiển thị
-    appendMessageToUI(currentUser, messageText, 'sent');
+    // Lưu history
+    appendMessageToUI(currentUser, msg, 'sent');
     if (!chatHistory[currentTarget]) chatHistory[currentTarget] = [];
-    chatHistory[currentTarget].push({ sender: currentUser, msg: messageText });
-
-    saveHistoryToLocal(); 
+    chatHistory[currentTarget].push({ sender: currentUser, msg: msg });
+    saveHistoryToLocal();
 
     const url = currentType === 'direct' ? '/send-peer' : '/broadcast-peer';
     const body = {
         sender: currentUser,
-        msg: messageText,
-        target: currentType === 'direct' ? currentTarget : undefined
+        msg: msg,
+        target: currentType === 'direct' ? currentTarget : undefined,
+        channel: currentType === 'channel' ? currentTarget : undefined
     };
 
     try {
@@ -947,113 +1213,82 @@ async function sendMessage() {
             body: JSON.stringify(body)
         });
         input.value = '';
-    } catch (error) { console.error(error); }
+    } catch (e) {}
 }
 
-// 4. NHẬN TIN NHẮN
+// --- NHẬN TIN NHẮN ---
 async function fetchMessages() {
     if (!currentUser) return;
-
     try {
         const response = await fetch('/get-messages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ peer_id: currentUser }) 
+            body: JSON.stringify({ peer_id: currentUser })
         });
-
         if (response.ok) {
             const data = await response.json();
-            
             if (data.messages && data.messages.length > 0) {
-                data.messages.forEach(msg => {
-                    // Logic xử lý người gửi
-                    // Nếu là tin broadcast, server gửi: sender="General", msg="Hung: hello"
-                    // Nếu là tin direct, server gửi: sender="Hung", msg="hello"
+                data.messages.forEach(m => {
+                    const senderID = m.sender; // Tên người gửi hoặc tên Kênh
                     
-                    const senderID = msg.sender; // "General" hoặc tên User
-                    
-                    // Lưu lịch sử
                     if (!chatHistory[senderID]) chatHistory[senderID] = [];
-                    chatHistory[senderID].push({
-                        sender: senderID, 
-                        msg: msg.message // Nội dung tin
-                    });
-
+                    chatHistory[senderID].push({ sender: senderID, msg: m.message });
                     saveHistoryToLocal();
 
-                    // Nếu đang xem đúng người đó -> Hiện lên
                     if (currentTarget === senderID) {
-                        appendMessageToUI(senderID, msg.message, 'received');
+                        appendMessageToUI(senderID, m.message, 'received');
                     } else {
-                        // Thông báo
                         if (!unreadCounts[senderID]) unreadCounts[senderID] = 0;
                         unreadCounts[senderID]++;
-                        
-                        // Nếu là tin nhắn từ Peer, cần update list để hiện dấu đỏ
-                        if (senderID !== 'General') fetchPeerList();
-                        
-                        // Toast
-                        showToast(`📩 Tin mới từ ${senderID}`);
+                        fetchData();
+                        showToast(`📩 ${senderID}: ${m.message}`);
                     }
                 });
             }
         }
-    } catch (error) { console.error("Lỗi polling:", error); }
+    } catch (e) {}
 }
 
+// --- HELPER UI & STORAGE ---
 function loadChatHistory(target) {
     const msgWindow = document.getElementById('message-window');
     msgWindow.innerHTML = `<div class="system-msg">${currentType === 'channel' ? '📢' : '👤'} ${target}</div>`;
-    
-    const history = chatHistory[target] || [];
-    history.forEach(m => {
-        const type = m.sender === currentUser ? 'sent' : 'received';
-        appendMessageToUI(m.sender, m.msg, type);
+    const list = chatHistory[target] || [];
+    list.forEach(item => {
+        const type = item.sender === currentUser ? 'sent' : 'received';
+        appendMessageToUI(item.sender, item.msg, type);
     });
 }
 
 function appendMessageToUI(sender, text, type) {
     const msgWindow = document.getElementById('message-window');
-    const msgDiv = document.createElement('div');
-    msgDiv.className = `message ${type}`;
+    const div = document.createElement('div');
+    div.className = `message ${type}`;
     
-    // Nếu là 'sent' (mình gửi), không cần hiện tên
-    // Nếu là 'received' (nhận):
-    // - Nếu đang chat kênh General: sender là "General", text là "Hung: hello" -> Hiện text là đủ
-    // - Nếu chat riêng: sender là "Hung" -> Hiện tên người gửi
-    
-    let contentHTML = `<div class="msg-content">${text}</div>`;
+    let html = `<div class="msg-content">${text}</div>`;
+    // Nếu là tin nhận được và là chat riêng, hiện tên người gửi
+    // Nếu chat kênh, sender chính là tên kênh -> trong content text đã có "Hung: hello"
     if (type === 'received' && currentType === 'direct') {
-        contentHTML = `<div class="msg-sender">${sender}</div>` + contentHTML;
+        html = `<div class="msg-sender">${sender}</div>` + html;
     }
-    
-    msgDiv.innerHTML = contentHTML;
-    msgWindow.appendChild(msgDiv);
+    div.innerHTML = html;
+    msgWindow.appendChild(div);
     msgWindow.scrollTop = msgWindow.scrollHeight;
 }
 
-function showToast(message) {
-    const toast = document.createElement("div");
-    toast.innerText = message;
-    toast.style.position = "fixed"; top = "20px"; right = "20px";
-    toast.style.cssText = "position:fixed; top:20px; right:20px; background:#333; color:#fff; padding:10px 20px; border-radius:5px; z-index:9999;";
-    document.body.appendChild(toast);
-    setTimeout(() => { document.body.removeChild(toast); }, 3000);
-}
-
-
-
 function saveHistoryToLocal() {
-    if (!currentUser) return;
-    // Lưu lịch sử chat gắn liền với tên người dùng hiện tại
-    // Để tránh việc đăng nhập nick khác lại thấy tin nhắn của nick cũ
-    localStorage.setItem(`history_${currentUser}`, JSON.stringify(chatHistory));
+    if (currentUser) localStorage.setItem(`hist_${currentUser}`, JSON.stringify(chatHistory));
 }
-
 function loadHistoryFromLocal() {
-    if (!currentUser) return;
-    const saved = localStorage.getItem(`history_${currentUser}`);
-    if (saved) {
-        chatHistory = JSON.parse(saved);
+    if (currentUser) {
+        const s = localStorage.getItem(`hist_${currentUser}`);
+        if (s) chatHistory = JSON.parse(s);
     }
+}
+function showToast(msg) {
+    const d = document.createElement("div");
+    d.innerText = msg;
+    d.style.cssText = "position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:10px;border-radius:5px;z-index:999";
+    document.body.appendChild(d);
+    setTimeout(() => document.body.removeChild(d), 3000);
 }
