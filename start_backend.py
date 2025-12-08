@@ -37,6 +37,3 @@ if __name__ == "__main__":
     port = args.server_port
 
     create_backend(ip, port)
-
-#cd /home/tc/CO3094-weaprous
-#python3 start_backend.py
