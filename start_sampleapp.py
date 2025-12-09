@@ -10,400 +10,191 @@ from daemon.weaprous import WeApRous
 PORT = 8000
 app = WeApRous()
 
-# In-memory state for peers and channels. Thread-safe because backend spawns threads.
-_peers: Dict[str, Dict[str, str]] = {}
-_channels: Dict[str, set] = defaultdict(set)
-_inbox: Dict[str, list] = defaultdict(list) 
+# --- DATABASE ---
+# _peers: { "username": {"ip": "...", "port": "...", "channels": ["General", "Game"]} }
+_peers: Dict[str, Dict] = {}
+
+# _channels: { "General": ["user1"], "Game": ["user1", "user2"] }
+_channels: Dict[str, list] = {"General": []} 
+
+# _inbox: { "username": [msg1, msg2] }
+_inbox: Dict[str, list] = defaultdict(list)
+
 _lock = threading.Lock()
 
+def _parse_body(body):
+    if isinstance(body, dict): return body
+    if not body: return {}
+    try: return json.loads(body)
+    except: return {}
 
-def _parse_body(body: str) -> Dict[str, str]:
-    """
-    Parse a body that might be URL-encoded form (`a=1&b=2`) or JSON.
-    """
-    if not body:
-        return {}
-    try:
-        return json.loads(body)
-    except Exception:
-        pass
-
-    parsed: Dict[str, str] = {}
-    for pair in body.split("&"):
-        if not pair or "=" not in pair:
-            continue
-        key, value = pair.split("=", 1)
-        parsed[key] = value
-    return parsed
-
-
-def _require_peer(body_map: Dict[str, str]) -> Tuple[bool, str]:
-    peer_id = body_map.get("peer_id")
-    if not peer_id:
-        return False, "peer_id missing"
-    return True, peer_id
-
-
-# @app.route("/login", methods=["POST"])
-# def login(headers="guest", body="anonymous"):
-#     """
-#     Authenticate a peer with a simple shared secret (password='password').
-#     """
-#     data = _parse_body(body or "")
-#     ok, peer_id = _require_peer(data)
-#     if not ok:
-#         return {"status": "error", "message": peer_id}, 400
-
-#     password = data.get("password")
-#     if password != "password":
-#         print(f"[SampleApp] Login FAILED for peer: {peer_id}")
-#         return {"status": "error", "message": "invalid credentials"}, 401
-
-#     ip = data.get("ip") or headers.get("host", "unknown")
-#     port = data.get("port", "")
-
-#     with _lock:
-#         _peers[peer_id] = {"ip": ip, "port": port, "channels": set()}
-
-#     print(f"[SampleApp] Login SUCCESS for peer: {peer_id}")
-#     return {"status": "ok", "peer_id": peer_id}, 200
-
-
-# @app.route("/login", methods=["POST"])
-# def login(headers="guest", body="anonymous"):
-#     """
-#     Authenticate a peer with a simple shared secret (password='password').
-#     Integrates Cookie Logic from Task 2.1.
-#     """
-#     data = _parse_body(body or "")
-    
-#     # Logic kiểm tra user/pass của Task 2.1
-#     # Nếu form gửi lên dạng username=admin&password=password
-#     if "username" in data and data["username"] == "admin" and data.get("password") == "password":
-#         # Đây là login kiểu Admin cho Task 2.1 -> Trả về tín hiệu để set Cookie
-#         return "LOGIN_SUCCESS"
-
-#     # Logic kiểm tra peer_id cho Task 2.2 (Chat)
-#     ok, peer_id = _require_peer(data)
-#     if not ok:
-#         # Nếu không có peer_id và cũng không phải admin -> Lỗi
-#         return {"status": "error", "message": peer_id}, 400
-
-#     password = data.get("password")
-#     if password != "password":
-#         print(f"[SampleApp] Login FAILED for peer: {peer_id}")
-#         return {"status": "error", "message": "invalid credentials"}, 401
-
-#     ip = data.get("ip") or headers.get("host", "unknown")
-#     port = data.get("port", "")
-
-#     with _lock:
-#         _peers[peer_id] = {"ip": ip, "port": port, "channels": set()}
-
-#     print(f"[SampleApp] Login SUCCESS for peer: {peer_id}")
-    
-#     # QUAN TRỌNG: Để kết hợp cả 2, ta cần trả về tín hiệu thành công
-#     # Nhưng vì Task 2.2 cần JSON, còn Task 2.1 cần Cookie.
-#     # Ta sẽ sửa code một chút để hỗ trợ cả hai trong HttpAdapter (sẽ nói ở dưới),
-#     # hoặc đơn giản là trả về chuỗi đặc biệt này nếu bạn muốn set cookie.
-    
-#     # Tuy nhiên, với chat App P2P, thường Client dùng JSON.
-#     return {"status": "ok", "peer_id": peer_id}, 200
-
-
-
-# @app.route("/login", methods=["POST"])
-# def login(headers="guest", body="anonymous"):
-#     """
-#     Xử lý đăng nhập Hybrid:
-#     - Task 1: Nếu là admin -> Trả về LOGIN_SUCCESS để set Cookie.
-#     - Task 2: Nếu là user khác -> Trả về JSON để vào Chat.
-#     """
-#     data = _parse_body(body or "")
-    
-#     # --- LOGIC CHO TASK 1 (Bắt buộc phải đúng admin/password) ---
-#     if data.get("username") == "admin" and data.get("password") == "password":
-#         print("[Auth] Admin login detected -> Task 1 Cookie Mode")
-#         # Trả về chuỗi này để HttpAdapter nhận diện và Set-Cookie: auth=true
-#         return "LOGIN_SUCCESS"
-
-#     # --- LOGIC CHO TASK 2 (Các user chat khác) ---
-#     # User chat bắt buộc phải có peer_id (hoặc username)
-#     peer_id = data.get("peer_id") or data.get("username")
-    
-#     if not peer_id:
-#         return {"status": "error", "message": "Missing username/peer_id"}, 400
-
-#     # Kiểm tra password chung (Shared secret)
-#     if data.get("password") == "password":
-#         # Lưu thông tin peer để chat
-#         ip = data.get("ip") or headers.get("host", "unknown")
-#         port = data.get("port", "")
-#         with _lock:
-#             _peers[peer_id] = {"ip": ip, "port": port, "channels": set()}
-            
-#         print(f"[Auth] Peer login: {peer_id} -> Task 2 Chat Mode")
-#         # Trả về JSON để Frontend Chat hoạt động
-#         return {"status": "ok", "peer_id": peer_id}, 200
-    
-#     # --- LOGIC SAI PASSWORD (Chặn hết) ---
-#     print(f"[Auth] Login failed for {peer_id}")
-#     return {"status": "error", "message": "Invalid credentials"}, 401
-
-
-
-
+# --- API ROUTES ---
 
 @app.route("/login", methods=["POST"])
 def login(headers="guest", body="anonymous"):
-    """
-    Xử lý đăng nhập Hybrid (Sửa lỗi nhận diện Admin)
-    """
-    data = _parse_body(body or "")
-    
-    # Lấy tên đăng nhập (dù frontend gửi là 'username' hay 'peer_id')
-    current_user = data.get("username") or data.get("peer_id")
+    data = _parse_body(body)
+    username = data.get("username") or data.get("peer_id")
     password = data.get("password")
+    ip = data.get("ip") or "127.0.0.1"
+    port = data.get("port")
 
-    print(f"[Auth] Debug: Input user='{current_user}', pass='{password}'")
-
-    # --- LOGIC CHO TASK 1 (ADMIN) ---
-    # Nếu tên là admin và pass đúng -> Kích hoạt Task 1
-    if current_user == "admin" and password == "password":
-        print("[Auth] Admin login detected -> Task 1 Cookie Mode")
-        # Trả về tín hiệu để HttpAdapter set cookie
-        return "LOGIN_SUCCESS"
-
-    # --- LOGIC CHO TASK 2 (CHAT) ---
-    if not current_user:
-        return {"status": "error", "message": "Missing username/peer_id"}, 400
+    print(f"[Auth] Login: user={username}")
 
     if password == "password":
-        ip = data.get("ip") or headers.get("host", "unknown")
-        port = data.get("port", "")
         with _lock:
-            _peers[current_user] = {"ip": ip, "port": port, "channels": set()}
-            
-        print(f"[Auth] Peer login: {current_user} -> Task 2 Chat Mode")
-        return {"status": "ok", "peer_id": current_user}, 200
+            # Lưu thông tin user
+            _peers[username] = {
+                "name": username, 
+                "ip": ip, 
+                "port": port,
+                "channels": ["General"] # Mặc định ai cũng có General
+            }
+            # Thêm vào kênh General
+            if username not in _channels["General"]:
+                _channels["General"].append(username)
+
+        # Nếu là admin -> Trả về text để set cookie (Task 1)
+        if username == "admin":
+            return "LOGIN_SUCCESS"
+        
+        # Nếu là peer -> Trả về JSON (Task 2)
+        return {"status": "ok", "peer_id": username}
     
-    print(f"[Auth] Login failed for {current_user}")
     return {"status": "error", "message": "Invalid credentials"}, 401
 
+@app.route("/get-list", methods=["POST", "GET"])
+def get_list(headers, body):
+    """Lấy danh sách người dùng online"""
+    with _lock:
+        peer_list = list(_peers.values())
+    return {"status": "ok", "peers": peer_list}
+
+@app.route("/get-channels", methods=["POST"])
+def get_channels(headers, body):
+    """Lấy danh sách kênh (Admin thấy hết, User chỉ thấy kênh đã join)"""
+    data = _parse_body(body)
+    peer_id = data.get("peer_id")
+    
+    with _lock:
+        if peer_id == "admin":
+            # Admin thấy tất cả kênh
+            channels = list(_channels.keys())
+        else:
+            # User thấy kênh mình đã join (được lưu trong _peers)
+            user_info = _peers.get(peer_id, {})
+            channels = user_info.get("channels", ["General"])
+            
+    return {"status": "ok", "channels": channels}
 
 @app.route("/add-list", methods=["POST"])
-def add_list(headers="guest", body="anonymous"):
-    """
-    Add a peer to a channel membership list.
-    """
-    data = _parse_body(body or "")
-    ok, peer_id = _require_peer(data)
-    if not ok:
-        return {"status": "error", "message": peer_id}, 400
-
+def add_list(headers, body):
+    """Tạo hoặc tham gia kênh"""
+    data = _parse_body(body)
     channel = data.get("channel")
-    if not channel:
-        return {"status": "error", "message": "channel missing"}, 400
+    username = data.get("username")
+
+    if not channel or not username:
+        return {"status": "error", "message": "Missing info"}, 400
 
     with _lock:
-        if peer_id not in _peers:
-            return {"status": "error", "message": "peer not authenticated"}, 401
-        _channels[channel].add(peer_id)
-        _peers[peer_id].setdefault("channels", set()).add(channel)
-        members = list(_channels[channel])
+        # 1. Tạo kênh nếu chưa có
+        if channel not in _channels:
+            _channels[channel] = []
+        
+        # 2. Thêm user vào danh sách thành viên kênh
+        if username not in _channels[channel]:
+            _channels[channel].append(username)
+            
+        # 3. Cập nhật danh sách kênh của user
+        if username in _peers:
+            if channel not in _peers[username]["channels"]:
+                _peers[username]["channels"].append(channel)
 
-    print(f"[SampleApp] Peer {peer_id} joined channel {channel}")
-    return {"status": "ok", "channel": channel, "members": members}, 200
-
-
-@app.route("/connect-peer", methods=["POST", "GET"])
-def connect_peer(headers="guest", body="anonymous"):
-    """
-    Optional trigger to fetch peers for a caller to connect to.
-    """
-    data = _parse_body(body or "")
-    ok, peer_id = _require_peer(data)
-    if not ok:
-        return {"status": "error", "message": peer_id}, 400
-
-    with _lock:
-        if peer_id not in _peers:
-            return {"status": "error", "message": "peer not authenticated"}, 401
-        peers = [
-            {"peer_id": pid, "ip": info.get("ip"), "port": info.get("port")}
-            for pid, info in _peers.items()
-            if pid != peer_id
-        ]
-
-    return {"status": "ok", "peers": peers}, 200
-
-
-@app.route("/broadcast-peer", methods=["POST"])
-def broadcast_peer(headers="guest", body="anonymous"):
-    """
-    Broadcast a message to all members of a channel.
-    """
-    data = _parse_body(body or "")
-    ok, peer_id = _require_peer(data)
-    if not ok:
-        return {"status": "error", "message": peer_id}, 400
-    
-    # --- START ACCESS CONTROL ---
-    # Kiểm tra xem người gửi có phải là admin không
-    if peer_id != "admin":
-        print(f"[AccessControl] Denied broadcast request from {peer_id}")
-        return {
-            "status": "error", 
-            "message": "Access Denied: Only 'admin' can broadcast."
-        }, 403 
-    # --- END ACCESS CONTROL ---
-    
-    channel = data.get("channel")
-    message = data.get("message", "")
-    if not channel:
-        return {"status": "error", "message": "channel missing"}, 400
-
-    with _lock:
-        if peer_id not in _peers:
-            return {"status": "error", "message": "peer not authenticated"}, 401
-        targets = list(_channels.get(channel, []))
-
-    print(f"[SampleApp] Broadcast from {peer_id} -> channel {channel}: {message}")
-    return {
-        "status": "ok",
-        "channel": channel,
-        "targets": targets,
-        "message": message,
-    }, 200
-
-
-# @app.route("/send-peer", methods=["POST"])
-# def send_peer(headers="guest", body="anonymous"):
-#     """
-#     Send a direct message to a specific peer.
-#     """
-#     data = _parse_body(body or "")
-#     ok, peer_id = _require_peer(data)
-#     if not ok:
-#         return {"status": "error", "message": peer_id}, 400
-
-#     target = data.get("target")
-#     message = data.get("message", "")
-#     if not target:
-#         return {"status": "error", "message": "target missing"}, 400
-
-#     with _lock:
-#         if peer_id not in _peers:
-#             return {"status": "error", "message": "peer not authenticated"}, 401
-#         if target not in _peers:
-#             return {"status": "error", "message": "target not found"}, 404
-
-#     print(f"[SampleApp] Direct message {peer_id} -> {target}: {message}")
-#     return {"status": "ok", "to": target, "message": message}, 200
-
+    print(f"[Channel] {username} joined {channel}")
+    return {"status": "ok", "channel": channel}
 
 @app.route("/send-peer", methods=["POST"])
-def send_peer(headers="guest", body="anonymous"):
-    """
-    Send a direct message to a specific peer.
-    """
-    data = _parse_body(body or "")
-    ok, peer_id = _require_peer(data)
-    if not ok:
-        return {"status": "error", "message": peer_id}, 400
-
+def send_peer(headers, body):
+    """Gửi tin nhắn riêng"""
+    data = _parse_body(body)
     target = data.get("target")
-    message = data.get("message", "")
-    if not target:
-        return {"status": "error", "message": "target missing"}, 400
+    sender = data.get("sender")
+    msg = data.get("msg") or data.get("message")
 
-    # ================= ACCESS CONTROL LOGIC =================
-    
-    # TRƯỜNG HỢP 1: Xử lý lệnh đặc biệt "/kick" (Chỉ Admin mới được dùng)
-    if message.startswith("/kick"):
-        # Authorization Check: Bạn là ai?
-        if peer_id != "admin":
-            print(f"[AccessControl] User {peer_id} tried to use admin command.")
-            return {
-                "status": "error", 
-                "message": "⛔ ACCESS DENIED: Only 'admin' can use /kick command."
-            }, 403 # Forbidden
-        
-        # Nếu là admin -> Thực thi lệnh
-        target_to_kick = message.split(" ")[1] if len(message.split(" ")) > 1 else target
-        
+    if not target or not msg: return {"status": "error"}, 400
+    if target == sender: return {"status": "error", "message": "Self"}, 403
+
+    # Xử lý /kick (Admin)
+    if msg.startswith("/kick") and sender == "admin":
+        user_to_kick = msg.split(" ")[1]
         with _lock:
-            if target_to_kick in _peers:
-                del _peers[target_to_kick] # Xóa user khỏi danh sách
-                print(f"[Admin] User {target_to_kick} was kicked by Admin.")
-                
-                # Gửi thông báo lại cho Admin
-                return {
-                    "status": "ok", 
-                    "to": target, 
-                    "message": f"SYSTEM: User {target_to_kick} has been kicked out."
-                }, 200
-            else:
-                 return {"status": "error", "message": "User not found to kick"}, 404
+            if user_to_kick in _peers:
+                del _peers[user_to_kick]
+                # Xóa khỏi các kênh
+                for ch in _channels:
+                    if user_to_kick in _channels[ch]:
+                        _channels[ch].remove(user_to_kick)
+        return {"status": "ok", "message": f"Kicked {user_to_kick}"}
 
-    # ================= END ACCESS CONTROL =================
-    
+    # Lưu tin nhắn direct
     with _lock:
-        if peer_id not in _peers:
-            return {"status": "error", "message": "peer not authenticated"}, 401
-        
-        # Kiểm tra target có tồn tại không (Optional, tùy logic)
-        # if target not in _peers:
-        #    return {"status": "error", "message": "target not found"}, 404
+        if target in _peers:
+            _inbox[target].append({
+                "sender": sender,
+                "msg": msg,
+                "type": "direct",
+                "timestamp": "now"
+            })
+            print(f"[Direct] {sender} -> {target}: {msg}")
+            return {"status": "ok"}
+        else:
+            return {"status": "error", "message": "Offline"}, 404
 
-        # LƯU TIN NHẮN VÀO HỘP THƯ CỦA TARGET
-        msg_obj = {
-            "sender": peer_id,
-            "message": message,
-            "timestamp": "now" # Bạn có thể thêm datetime thực tế nếu muốn
-        }
-        _inbox[target].append(msg_obj)
+@app.route("/broadcast-peer", methods=["POST"])
+def broadcast_peer(headers, body):
+    """Gửi tin nhắn vào Kênh"""
+    data = _parse_body(body)
+    channel = data.get("channel")
+    msg = data.get("msg") or data.get("message")
+    sender = data.get("sender")
 
-    print(f"[SampleApp] Direct message {peer_id} -> {target}: {message}")
-    return {"status": "ok", "to": target, "message": message}, 200
+    if not channel or not msg: return {"status": "error"}, 400
 
+    with _lock:
+        # Lấy danh sách thành viên trong kênh đó
+        members = _channels.get(channel, [])
+        if not members: return {"status": "error", "message": "Channel empty/not found"}, 404
 
-# THÊM API MỚI ĐỂ NHẬN TIN NHẮN
+        for member in members:
+            if member != sender and member in _peers:
+                _inbox[member].append({
+                    "sender": channel, # Hiển thị tên kênh là người gửi
+                    "real_sender": sender, # Người thực gửi
+                    "msg": f"{sender}: {msg}",
+                    "type": "channel"
+                })
+        print(f"[Channel {channel}] {sender}: {msg}")
+
+    return {"status": "ok"}
+
 @app.route("/get-messages", methods=["POST"])
-def get_messages(headers="guest", body="anonymous"):
-    """
-    Fetch pending messages for the authenticated peer.
-    """
-    data = _parse_body(body or "")
-    ok, peer_id = _require_peer(data)
-    if not ok:
-        return {"status": "error", "message": peer_id}, 400
-    
+def get_messages(headers, body):
+    data = _parse_body(body)
+    peer_id = data.get("peer_id")
     messages = []
-    with _lock:
-        if peer_id in _inbox and _inbox[peer_id]:
-            # Lấy tất cả tin nhắn và xóa khỏi hàng đợi (cơ chế Popping)
-            messages = _inbox[peer_id][:] 
-            _inbox[peer_id] = [] # Xóa tin đã đọc
-            
-    return {"status": "ok", "messages": messages}, 200
-
-
-@app.route("/hello", methods=["PUT"])
-def hello(headers, body):
-    print(f"[SampleApp] ['PUT'] Hello in {headers} to {body}")
-
+    if peer_id:
+        with _lock:
+            if peer_id in _inbox:
+                messages = _inbox[peer_id][:]
+                _inbox[peer_id] = []
+    
+    formatted = [{"sender": m["sender"], "message": m["msg"]} for m in messages]
+    return {"status": "ok", "messages": formatted}
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        prog="Backend", description="", epilog="Beckend daemon"
-    )
+    parser = argparse.ArgumentParser()
     parser.add_argument("--server-ip", default="0.0.0.0")
     parser.add_argument("--server-port", type=int, default=PORT)
-
     args = parser.parse_args()
-    ip = args.server_ip
-    port = args.server_port
-
-    app.prepare_address(ip, port)
+    app.prepare_address(args.server_ip, args.server_port)
     app.run()

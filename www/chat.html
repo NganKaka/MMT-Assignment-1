@@ -2,18 +2,42 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Messenger Chat</title>
+    <title>Messenger Chat Hybrid</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .section-title { padding: 10px 15px; font-size: 12px; color: #666; font-weight: bold; background: #eee; text-transform: uppercase; }
+        .input-group { padding: 10px; border-bottom: 1px solid #ddd; display: flex; }
+        .input-group input { flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px; }
+        .input-group button { margin-left: 5px; padding: 5px 10px; background: #0084ff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        
+        #channel-list, #peer-list { list-style: none; padding: 0; }
+        .item-list { padding: 15px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: 0.2s; }
+        .item-list:hover { background-color: #f0f2f5; }
+        .item-list.active { background-color: #e6f2ff; border-left: 4px solid #0084ff; font-weight: bold; }
+        
+        .channel-icon::before { content: '📢 '; }
+        .peer-icon::before { content: '👤 '; }
+    </style>
 </head>
 <body>
     <div id="chat-screen">
         <div class="sidebar">
             <div class="sidebar-header">
-                <h3>Đoạn chat</h3>
+                <h3>WeApRous Chat</h3>
             </div>
+            
+            <!-- Tạo/Vào Kênh -->
+            <div class="input-group">
+                <input type="text" id="new-channel-name" placeholder="Nhập tên kênh...">
+                <button onclick="joinChannel()">Vào</button>
+            </div>
+
             <div class="online-list-container">
-                <ul id="peer-list">
-                    </ul>
+                <div class="section-title">Kênh Chat</div>
+                <ul id="channel-list"></ul>
+
+                <div class="section-title">Người dùng Online</div>
+                <ul id="peer-list"></ul>
             </div>
         </div>
 
@@ -26,7 +50,7 @@
             </div>
 
             <div id="message-window" class="message-area">
-                <div class="system-msg">Chào mừng đến với hệ thống Chat P2P Hybrid</div>
+                <div class="system-msg">Chào mừng! Hãy chọn người hoặc kênh để chat.</div>
             </div>
 
             <div class="chat-footer">
@@ -38,14 +62,11 @@
 
     <script src="script.js"></script>
     <script>
-        // Kiểm tra xem đã đăng nhập chưa
         const user = localStorage.getItem('chat_username');
         if (!user) {
-            alert("Bạn chưa đăng nhập! Quay lại trang login.");
             window.location.href = "/login.html";
         } else {
-            document.getElementById('current-user-display').innerText = user;
-            // Gọi hàm khởi động trong script.js
+            document.getElementById('current-user-display').innerText = `Tôi: ${user}`;
             startChatApp(user);
         }
 
