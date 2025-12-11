@@ -1,14 +1,3 @@
-#
-# Copyright (C) 2025 pdnguyen of HCMC University of Technology VNU-HCM.
-# All rights reserved.
-# This file is part of the CO3093/CO3094 course.
-#
-# WeApRous release
-#
-# The authors hereby grant to Licensee personal permission to use
-# and modify the Licensed Source Code for the sole purpose of studying
-# while attending the course
-#
 
 """
 daemon.request
@@ -82,20 +71,7 @@ class Request():
             return method, path, version
         except Exception:
             return None, None, None
-             
-    # def prepare_headers(self, request):
-    #     """Prepares the given HTTP headers."""
-    #     lines = request.split('\r\n')
-    #     headers = {}
-    #     # Skip the request line (index 0)
-    #     for line in lines[1:]:
-    #         if ': ' in line:
-    #             key, val = line.split(': ', 1)
-    #             headers[key.lower()] = val
-    #         elif ':' in line: # Handle cases with no space after colon
-    #             key, val = line.split(':', 1)
-    #             headers[key.lower()] = val.strip()
-    #     return headers
+    
     
     def prepare_headers(self, request):
         """Prepares the given HTTP headers."""

@@ -478,72 +478,72 @@ async function sendMessage() {
 //     }
 // }
 
-// async function fetchMessages() {
-//     if (!currentUser) return;
-
-//     try {
-//         const res = await fetch(`/get-messages?peer_id=${currentUser}`);
-//         if (!res.ok) return;
-
-//         const data = await res.json();
-//         if (!data.messages) return;
-
-//         data.messages.forEach(m => {
-//             const sender = m.sender;
-//             const message = m.message;
-//             const channel = m.channel;     // tracker format
-
-//             let key;
-
-//             const isDirect = channel.includes("__");
-
-//             if (isDirect) {
-//                 key = channel;
-//             } else {
-//                 key = channel;  // channel name
-//             }
-
-//             if (!chatHistory[key]) chatHistory[key] = [];
-
-//             const isDuplicate = chatHistory[key].some(x => x.msg === message);
-//             if (isDuplicate) return;
-
-//             chatHistory[key].push({ sender, msg: message });
-//             saveHistoryToLocal();
-
-//             // UI display
-//             const shouldShow =
-//                 (currentType === "direct" && key === makeDirectKey(currentUser, currentTarget)) ||
-//                 (currentType === "channel" && key === currentTarget);
-
-//             if (shouldShow) {
-//                 appendMessageToUI(sender, message, "received");
-//             } else {
-//                 unreadCounts[key] = (unreadCounts[key] || 0) + 1;
-//                 fetchLists();
-//                 showToast(`📩 ${sender}: ${message}`);
-//             }
-//         });
-
-//     } catch (e) {}
-// }
-
 async function fetchMessages() {
-    if (!currentTarget || !currentType) return;
+    if (!currentUser) return;
 
-    let url = "/get-messages";
+    try {
+        const res = await fetch(`/get-messages?peer_id=${currentUser}`);
+        if (!res.ok) return;
 
-    if (currentType === "channel") {
-        url += `?channel=${currentTarget}`;
-    } else if (currentType === "direct") {
-        url += `?peer_id=${currentUser}`;
-    }
+        const data = await res.json();
+        if (!data.messages) return;
 
-    const res = await fetch(url);
-    const data = await res.json();
+        data.messages.forEach(m => {
+            const sender = m.sender;
+            const message = m.message;
+            const channel = m.channel;     // tracker format
 
-    renderMessages(data.messages);
+            let key;
+
+            const isDirect = channel.includes("__");
+
+            if (isDirect) {
+                key = channel;
+            } else {
+                key = channel;  // channel name
+            }
+
+            if (!chatHistory[key]) chatHistory[key] = [];
+
+            const isDuplicate = chatHistory[key].some(x => x.msg === message);
+            if (isDuplicate) return;
+
+            chatHistory[key].push({ sender, msg: message });
+            saveHistoryToLocal();
+
+            // UI display
+            const shouldShow =
+                (currentType === "direct" && key === makeDirectKey(currentUser, currentTarget)) ||
+                (currentType === "channel" && key === currentTarget);
+
+            if (shouldShow) {
+                appendMessageToUI(sender, message, "received");
+            } else {
+                unreadCounts[key] = (unreadCounts[key] || 0) + 1;
+                fetchLists();
+                showToast(`📩 ${sender}: ${message}`);
+            }
+        });
+
+    } catch (e) {}
 }
+
+// async function fetchMessages() {
+//     if (!currentTarget || !currentType) return;
+
+//     let url = "/get-messages";
+
+//     if (currentType === "channel") {
+//         url += `?channel=${currentTarget}`;
+//     } else if (currentType === "direct") {
+//         url += `?peer_id=${currentUser}`;
+//     }
+
+//     const res = await fetch(url);
+//     const data = await res.json();
+
+//     renderMessages(data.messages);
+// }
 
 
 
