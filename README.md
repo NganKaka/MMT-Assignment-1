@@ -64,4 +64,26 @@ MMT-Assignment-1/
 ├── start_sampleapp.py      # MAIN ENTRY POINT (Runs Task 1 & 2 Logic)
 └── README.md               # Project Documentation
 ```
+## 🚀 How to Run & Test
 
+### Prerequisites
+* **Python 3.x** must be installed on your system.
+* No external web frameworks (Flask, Django) are required.
+* Ensure port `8000`, `8080`, `9001`, `9002` are free.
+
+---
+
+### 1️⃣ Run Task 1: HTTP Server & Authentication
+This starts the central server which handles Admin Login (Cookie Session) and acts as the Tracker for the Chat App.
+
+**Step 1: Start the Server**
+Open a terminal and run:
+```bash
+python3 start_sampleapp.py --server-port 8000
+```
+**Step 2: Test Login (Cookie)**
+Open a browser and navigate to **http://localhost:8000/login.html**
+
+Login with Admin credentials: (Username: admin, Password: password)
+
+You should be redirected to index.html. Check Developer Tools -> Application -> Cookies to see auth=true.
