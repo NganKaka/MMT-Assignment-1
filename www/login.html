@@ -142,7 +142,6 @@ async function joinPeer() {
         
         .hint { font-size: 12px; color: #888; margin-top: 20px; font-style: italic; border-top: 1px solid #eee; padding-top: 10px;}
 
-        /* 1 Nút Duy Nhất */
         button { 
             width:100%; padding:12px; 
             background: linear-gradient(to right, #4CAF50, #008CBA); 
@@ -199,7 +198,7 @@ async function joinPeer() {
         // --- ĐIỀU HƯỚNG LOGIC ---
         if (username === "admin") {
             // TRƯỜNG HỢP 1: ADMIN LOGIN (Task 1)
-            await loginAsAdmin(username, password);
+            await loginAsAdmin(username, password, ip, port);
         } else {
             // TRƯỜNG HỢP 2: PEER JOIN CHAT (Task 2)
             await joinChatPeer(username, password, ip, port);
