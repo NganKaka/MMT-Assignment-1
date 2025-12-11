@@ -26,14 +26,16 @@ async function fetchData() {
 // --- XỬ LÝ PEER ---
 async function fetchPeerList() {
     try {
-        const response = await fetch('/get-list', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({}) 
-        });
+        const response = await fetch('/get-list') 
+        //     { 
+        //     method: 'GET' 
+        //     // headers: { 'Content-Type': 'application/json' },
+        //     // body: JSON.stringify({}) 
+        // });
         if (response.ok) {
             const data = await response.json();
-            renderPeerList(data.peers);
+            const peers = Array.isArray(data) ? data : (data.peers || []);
+            renderPeerList(peers);
         }
     } catch (e) {}
 }
@@ -58,54 +60,108 @@ function renderPeerList(peers) {
 }
 
 // --- XỬ LÝ CHANNEL ---
+// async function joinChannel() {
+//     const name = document.getElementById('new-channel-name').value.trim();
+//     if (!name) return;
+//     try {
+//         const response = await fetch('/add-list', {
+//             method: 'POST',
+//             headers: { 'Content-Type': 'application/json' },
+//             body: JSON.stringify({ channel: name, username: currentUser })
+//         });
+//         if (response.ok) {
+//             document.getElementById('new-channel-name').value = '';
+//             fetchChannelList();
+//             alert(`Đã tham gia: ${name}`);
+//         }
+//     } catch (e) { console.error(e); }
+// }
 async function joinChannel() {
     const name = document.getElementById('new-channel-name').value.trim();
     if (!name) return;
+
+    const peer = {
+        name: currentUser,
+        ip: localStorage.getItem("peer_ip"),
+        port: localStorage.getItem("peer_port")
+    };
+
     try {
         const response = await fetch('/add-list', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ channel: name, username: currentUser })
+            body: JSON.stringify({ 
+                channel: name, 
+                peer: peer                // ✅ ĐÚNG CHUẨN BACKEND
+            })
         });
-        if (response.ok) {
-            document.getElementById('new-channel-name').value = '';
+
+        const data = await response.json();
+        if (data.status === "ok") {
+            document.getElementById('new-channel-name').value = "";
             fetchChannelList();
-            alert(`Đã tham gia: ${name}`);
+            alert("Đã tham gia kênh: " + name);
         }
-    } catch (e) { console.error(e); }
+    } catch (e) {
+        console.error(e);
+    }
 }
+
 
 async function fetchChannelList() {
     try {
-        const response = await fetch('/get-channels', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ peer_id: currentUser })
-        });
+        // const response = await fetch(`/get-channels?peer_id=${currentUser}`); 
+        //     {
+        //     // method: 'GET'
+        //     // headers: { 'Content-Type': 'application/json' },
+        //     // body: JSON.stringify({ peer_id: currentUser })
+        // });
+        const response = await fetch("/get-channels");
+
         if (response.ok) {
             const data = await response.json();
-            renderChannelList(data.channels);
+            const list = Object.keys(data)
+            renderChannelList(list);
         }
     } catch (e) {}
 }
 
+// function renderChannelList(channels) {
+//     const listElement = document.getElementById('channel-list');
+//     listElement.innerHTML = '';
+//     channels.forEach(ch => {
+//         const li = document.createElement('li');
+//         li.className = 'item-list channel-icon';
+        
+//         // Check unread cho channel (nếu muốn)
+//         const count = unreadCounts[ch] || 0;
+//         if (count > 0) li.innerText = `${ch} (${count})`;
+//         else li.innerText = ch;
+
+//         if (currentTarget === ch && currentType === 'channel') li.classList.add('active');
+//         li.onclick = () => switchChat(ch, 'channel');
+//         listElement.appendChild(li);
+//     });
+// }
 function renderChannelList(channels) {
     const listElement = document.getElementById('channel-list');
     listElement.innerHTML = '';
+
     channels.forEach(ch => {
         const li = document.createElement('li');
         li.className = 'item-list channel-icon';
-        
-        // Check unread cho channel (nếu muốn)
-        const count = unreadCounts[ch] || 0;
-        if (count > 0) li.innerText = `${ch} (${count})`;
-        else li.innerText = ch;
 
-        if (currentTarget === ch && currentType === 'channel') li.classList.add('active');
+        const count = unreadCounts[ch] || 0;
+        li.innerText = count > 0 ? `${ch} (${count})` : ch;
+
+        if (currentTarget === ch && currentType === 'channel')
+            li.classList.add('active');
+
         li.onclick = () => switchChat(ch, 'channel');
         listElement.appendChild(li);
     });
 }
+
 
 // --- CHUYỂN ĐỔI ---
 function switchChat(target, type) {
@@ -151,37 +207,142 @@ async function sendMessage() {
 }
 
 // --- NHẬN TIN NHẮN ---
+// async function fetchMessages() {
+//     if (!currentUser) return;
+//     try {
+//         // const response = await fetch(`/get-messages?peer_id=${currentUser}`); 
+//         //     {
+//         //     method: 'GET'
+//         //     // headers: { 'Content-Type': 'application/json' },
+//         //     // body: JSON.stringify({ peer_id: currentUser })
+//         // });
+//         const response = await fetch("/get-messages");
+
+//         if (response.ok) {
+//             const data = await response.json();
+//             if (data.messages && data.messages.length > 0) {
+//                 data.messages.forEach(m => {
+//                     const senderID = m.sender; // Tên người gửi hoặc tên Kênh
+                    
+//                     if (!chatHistory[senderID]) chatHistory[senderID] = [];
+//                     chatHistory[senderID].push({ sender: senderID, msg: m.message });
+//                     saveHistoryToLocal();
+
+//                     if (currentTarget === senderID) {
+//                         appendMessageToUI(senderID, m.message, 'received');
+//                     } else {
+//                         if (!unreadCounts[senderID]) unreadCounts[senderID] = 0;
+//                         unreadCounts[senderID]++;
+//                         fetchData();
+//                         showToast(`📩 ${senderID}: ${m.message}`);
+//                     }
+//                 });
+//             }
+//         }
+//     } catch (e) {}
+// }
+
+
+// async function fetchMessages() {
+//     if (!currentUser || !currentTarget || currentType !== 'channel') return;
+
+//     try {
+//         const response = await fetch(`/get-messages?channel=${currentTarget}`);
+
+//         if (response.ok) {
+//             const data = await response.json();
+
+//             data.forEach(m => {
+//                 if (!chatHistory[currentTarget])
+//                     chatHistory[currentTarget] = [];
+
+//                 chatHistory[currentTarget].push({
+//                     sender: m.sender,
+//                     msg: m.msg
+//                 });
+
+//                 saveHistoryToLocal();
+
+//                 appendMessageToUI(m.sender, m.msg, 'received');
+//             });
+//         }
+//     } catch (e) {}
+// }
+
+// async function fetchMessages() {
+//     if (!currentUser) return;
+
+//     try {
+//         const response = await fetch(`/get-messages?peer_id=${currentUser}`);
+
+//         if (!response.ok) return;
+
+//         const data = await response.json();
+//         if (!data.messages) return;
+
+//         data.messages.forEach(m => {
+//             const sender = m.sender;       // tên người gửi hoặc tên kênh
+//             const message = m.message;
+
+//             if (!chatHistory[sender]) chatHistory[sender] = [];
+//             chatHistory[sender].push({ sender, msg: message });
+//             saveHistoryToLocal();
+
+//             if (currentTarget === sender) {
+//                 appendMessageToUI(sender, message, 'received');
+//             } else {
+//                 if (!unreadCounts[sender]) unreadCounts[sender] = 0;
+//                 unreadCounts[sender]++;
+//                 fetchData();
+//                 showToast(`📩 ${sender}: ${message}`);
+//             }
+//         });
+
+//     } catch (e) {
+//         console.error("fetchMessages error:", e);
+//     }
+// }
+
 async function fetchMessages() {
     if (!currentUser) return;
-    try {
-        const response = await fetch('/get-messages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ peer_id: currentUser })
-        });
-        if (response.ok) {
-            const data = await response.json();
-            if (data.messages && data.messages.length > 0) {
-                data.messages.forEach(m => {
-                    const senderID = m.sender; // Tên người gửi hoặc tên Kênh
-                    
-                    if (!chatHistory[senderID]) chatHistory[senderID] = [];
-                    chatHistory[senderID].push({ sender: senderID, msg: m.message });
-                    saveHistoryToLocal();
 
-                    if (currentTarget === senderID) {
-                        appendMessageToUI(senderID, m.message, 'received');
-                    } else {
-                        if (!unreadCounts[senderID]) unreadCounts[senderID] = 0;
-                        unreadCounts[senderID]++;
-                        fetchData();
-                        showToast(`📩 ${senderID}: ${m.message}`);
-                    }
-                });
+    try {
+        const response = await fetch(`/get-messages?peer_id=${currentUser}`);
+        if (!response.ok) return;
+
+        const data = await response.json();
+        if (!data.messages) return;
+
+        data.messages.forEach(m => {
+            const sender = m.sender;
+            const message = m.message;
+
+            if (!chatHistory[sender]) chatHistory[sender] = [];
+
+            // Check duplicate
+            const exists = chatHistory[sender].some(msgObj => msgObj.msg === message);
+            if (exists) return;
+
+            chatHistory[sender].push({ sender, msg: message });
+            saveHistoryToLocal();
+
+            if (currentTarget === sender) {
+                appendMessageToUI(sender, message, 'received');
+            } else {
+                if (!unreadCounts[sender]) unreadCounts[sender] = 0;
+                unreadCounts[sender]++;
+                fetchData();
+                showToast(`📩 ${sender}: ${message}`);
             }
-        }
-    } catch (e) {}
+        });
+
+    } catch (e) {
+        console.error("fetchMessages error:", e);
+    }
 }
+
+
+
 
 // --- HELPER UI & STORAGE ---
 function loadChatHistory(target) {

@@ -256,27 +256,27 @@ def get_messages(headers='', body=''):
     with lock:
         return json.dumps(MESSAGES.get(channel, []))
 
-# @app.route('/connect-peer', methods=['POST'])
-# def connect_peer(headers='', body=''):
-#     # Stub: tracker can optionally trigger peers to connect
-#     # return {"status": "ok"}
-#     """
-#     Request server to initiate or confirm connection to a peer.
-#     Body expected: {"peer": {"name":..., "ip":..., "port":...}}
-#     """
-#     try:
-#         data = json.loads(body)
-#         peer = data.get('peer')
-#         if not peer or not all(k in peer for k in ('ip','port','name')):
-#             return json.dumps({"status":"error","message":"Invalid peer info"})
-#         # Check if peer is already in registry
-#         for p in PEERS:
-#             if p['ip'] == peer['ip'] and int(p['port']) == int(peer['port']):
-#                 return json.dumps({"status":"ok","message":"Already registered", "peer": p})
-#         PEERS.append(peer)
-#         return json.dumps({"status":"ok","peer": peer})
-#     except Exception as e:
-#         return json.dumps({"status":"error","message": str(e)})
+@app.route('/connect-peer', methods=['POST'])
+def connect_peer(headers='', body=''):
+    # Stub: tracker can optionally trigger peers to connect
+    # return {"status": "ok"}
+    """
+    Request server to initiate or confirm connection to a peer.
+    Body expected: {"peer": {"name":..., "ip":..., "port":...}}
+    """
+    try:
+        data = json.loads(body)
+        peer = data.get('peer')
+        if not peer or not all(k in peer for k in ('ip','port','name')):
+            return json.dumps({"status":"error","message":"Invalid peer info"})
+        # Check if peer is already in registry
+        for p in PEERS:
+            if p['ip'] == peer['ip'] and int(p['port']) == int(peer['port']):
+                return json.dumps({"status":"ok","message":"Already registered", "peer": p})
+        PEERS.append(peer)
+        return json.dumps({"status":"ok","peer": peer})
+    except Exception as e:
+        return json.dumps({"status":"error","message": str(e)})
 
 
 @app.route('/broadcast-peer', methods=['POST'])

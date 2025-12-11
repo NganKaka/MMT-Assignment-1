@@ -3,7 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <title>Messenger Chat Hybrid</title>
-    <link rel="stylesheet" href="style.css">
+    <style>
+        /* ==== NỘI DUNG STYLE.CSS ==== */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+
+        body { background-color: #f0f2f5; height: 100vh; display: flex; align-items: center; justify-content: center; }
+
+        #chat-screen {
+            width: 900px; height: 600px; background: white; display: flex;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-radius: 8px; overflow: hidden;
+        }
+
+        /* Cột trái: Danh sách */
+        .sidebar { width: 250px; background: #fff; border-right: 1px solid #ddd; display: flex; flex-direction: column; }
+        .sidebar-header { padding: 20px; border-bottom: 1px solid #eee; background: #f5f5f5; }
+        .online-list-container { flex: 1; overflow-y: auto; }
+        #peer-list { list-style: none; }
+        .peer-item {
+            padding: 15px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: 0.2s;
+        }
+        .peer-item:hover { background-color: #f0f2f5; }
+        .peer-item.active { background-color: #e6f2ff; border-left: 4px solid #0084ff; font-weight: bold; }
+
+        /* Cột phải: Chat chính */
+        .main-chat { flex: 1; display: flex; flex-direction: column; }
+        .chat-header { padding: 15px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; background: white; }
+        .active-status { color: #31a24c; font-size: 12px; margin-left: 10px; }
+
+        /* Khu vực tin nhắn */
+        .message-area { flex: 1; padding: 20px; overflow-y: auto; background-color: #fff; display: flex; flex-direction: column; gap: 10px; }
+        .system-msg { text-align: center; color: #888; font-size: 13px; margin-bottom: 20px; }
+
+        .message { max-width: 70%; padding: 10px 15px; border-radius: 18px; font-size: 14px; line-height: 1.4; position: relative; }
+        .msg-sender { font-size: 10px; color: #555; margin-bottom: 4px; }
+
+        /* Tin nhắn mình gửi */
+        .message.sent { align-self: flex-end; background-color: #0084ff; color: white; }
+        .message.sent .msg-sender { color: #e6e6e6; text-align: right; }
+
+        /* Tin nhắn người khác */
+        .message.received { align-self: flex-start; background-color: #f0f0f0; color: black; }
+
+        /* Footer nhập liệu */
+        .chat-footer { padding: 20px; border-top: 1px solid #ddd; display: flex; gap: 10px; }
+        #msg-input { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #ccc; outline: none; }
+        .send-btn { padding: 10px 20px; background-color: #0084ff; color: white; border: none; border-radius: 20px; cursor: pointer; font-weight: bold; }
+        .send-btn:hover { background-color: #0073e6; }
+
+        /* ==== CSS bổ sung trong HTML cũ ==== */
+        .section-title { padding: 10px 15px; font-size: 12px; color: #666; font-weight: bold; background: #eee; text-transform: uppercase; }
+        .input-group { padding: 10px; border-bottom: 1px solid #ddd; display: flex; }
+        .input-group input { flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px; }
+        .input-group button { margin-left: 5px; padding: 5px 10px; background: #0084ff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+
+        #channel-list, #peer-list { list-style: none; padding: 0; }
+        .item-list { padding: 15px; cursor: pointer; border-bottom: 1px solid #f0f0f0; transition: 0.2s; }
+        .item-list:hover { background-color: #f0f2f5; }
+        .item-list.active { background-color: #e6f2ff; border-left: 4px solid #0084ff; font-weight: bold; }
+
+        .channel-icon::before { content: '📢 '; }
+        .peer-icon::before { content: '👤 '; }
+    </style>
+    <!-- <link rel="stylesheet" href="/staticfile?file=style.css">
     <style>
         .section-title { padding: 10px 15px; font-size: 12px; color: #666; font-weight: bold; background: #eee; text-transform: uppercase; }
         .input-group { padding: 10px; border-bottom: 1px solid #ddd; display: flex; }
@@ -17,7 +78,9 @@
         
         .channel-icon::before { content: '📢 '; }
         .peer-icon::before { content: '👤 '; }
-    </style>
+    </style> -->
+    <!-- <script src="/staticfile?file=script.js"></script> -->
+
 </head>
 <body>
     <div id="chat-screen">
@@ -60,9 +123,398 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <!-- <script src="script.js"></script> -->
     <script>
-        const user = localStorage.getItem('chat_username');
+        let currentUser = null;
+        let currentTarget = null;
+        let currentType = null;
+        let chatHistory = {}; 
+        let unreadCounts = {}; 
+
+        function startChatApp(user) {
+            currentUser = user;
+            console.log("Logged in as:", currentUser);
+            
+            loadHistoryFromLocal();
+            
+            // Auto join channel list
+            fetchData();
+            setInterval(fetchData, 3000);
+
+            fetchMessages();
+            setInterval(fetchMessages, 2000);
+        }
+
+        async function fetchData() {
+            fetchPeerList();
+            fetchChannelList();
+        }
+
+        // --- XỬ LÝ PEER ---
+        async function fetchPeerList() {
+            try {
+                const response = await fetch('/get-list') 
+                //     { 
+                //     method: 'GET' 
+                //     // headers: { 'Content-Type': 'application/json' },
+                //     // body: JSON.stringify({}) 
+                // });
+                if (response.ok) {
+                    const data = await response.json();
+                    const peers = Array.isArray(data) ? data : (data.peers || []);
+                    renderPeerList(peers);
+                }
+            } catch (e) {}
+        }
+
+        function renderPeerList(peers) {
+            const listElement = document.getElementById('peer-list');
+            listElement.innerHTML = ''; 
+            peers.forEach(peer => {
+                if(peer.name === currentUser) return;
+                const li = document.createElement('li');
+                li.className = 'item-list peer-icon';
+                
+                const count = unreadCounts[peer.name] || 0;
+                if (count > 0) { li.classList.add('has-unread'); li.innerText = `${peer.name} (${count})`; }
+                else { li.innerText = peer.name; }
+
+                if (currentTarget === peer.name && currentType === 'direct') li.classList.add('active');
+
+                li.onclick = () => switchChat(peer.name, 'direct');
+                listElement.appendChild(li);
+            });
+        }
+
+        // --- XỬ LÝ CHANNEL ---
+        // async function joinChannel() {
+        //     const name = document.getElementById('new-channel-name').value.trim();
+        //     if (!name) return;
+        //     try {
+        //         const response = await fetch('/add-list', {
+        //             method: 'POST',
+        //             headers: { 'Content-Type': 'application/json' },
+        //             body: JSON.stringify({ channel: name, username: currentUser })
+        //         });
+        //         if (response.ok) {
+        //             document.getElementById('new-channel-name').value = '';
+        //             fetchChannelList();
+        //             alert(`Đã tham gia: ${name}`);
+        //         }
+        //     } catch (e) { console.error(e); }
+        // }
+        async function joinChannel() {
+            const name = document.getElementById('new-channel-name').value.trim();
+            if (!name) return;
+
+            const peer = {
+                name: currentUser,
+                ip: localStorage.getItem("peer_ip"),
+                port: localStorage.getItem("peer_port")
+            };
+
+            try {
+                const response = await fetch('/add-list', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        channel: name, 
+                        peer: peer                // ✅ ĐÚNG CHUẨN BACKEND
+                    })
+                });
+
+                const data = await response.json();
+                if (data.status === "ok") {
+                    document.getElementById('new-channel-name').value = "";
+                    fetchChannelList();
+                    alert("Đã tham gia kênh: " + name);
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+
+        async function fetchChannelList() {
+            try {
+                // const response = await fetch(`/get-channels?peer_id=${currentUser}`); 
+                //     {
+                //     // method: 'GET'
+                //     // headers: { 'Content-Type': 'application/json' },
+                //     // body: JSON.stringify({ peer_id: currentUser })
+                // });
+                const response = await fetch("/get-channels");
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const list = Object.keys(data)
+                    renderChannelList(list);
+                }
+            } catch (e) {}
+        }
+
+        // function renderChannelList(channels) {
+        //     const listElement = document.getElementById('channel-list');
+        //     listElement.innerHTML = '';
+        //     channels.forEach(ch => {
+        //         const li = document.createElement('li');
+        //         li.className = 'item-list channel-icon';
+                
+        //         // Check unread cho channel (nếu muốn)
+        //         const count = unreadCounts[ch] || 0;
+        //         if (count > 0) li.innerText = `${ch} (${count})`;
+        //         else li.innerText = ch;
+
+        //         if (currentTarget === ch && currentType === 'channel') li.classList.add('active');
+        //         li.onclick = () => switchChat(ch, 'channel');
+        //         listElement.appendChild(li);
+        //     });
+        // }
+        function renderChannelList(channels) {
+            const listElement = document.getElementById('channel-list');
+            listElement.innerHTML = '';
+
+            channels.forEach(ch => {
+                const li = document.createElement('li');
+                li.className = 'item-list channel-icon';
+
+                const count = unreadCounts[ch] || 0;
+                li.innerText = count > 0 ? `${ch} (${count})` : ch;
+
+                if (currentTarget === ch && currentType === 'channel')
+                    li.classList.add('active');
+
+                li.onclick = () => switchChat(ch, 'channel');
+                listElement.appendChild(li);
+            });
+        }
+
+
+        // --- CHUYỂN ĐỔI ---
+        function switchChat(target, type) {
+            currentTarget = target;
+            currentType = type;
+            unreadCounts[target] = 0; // Reset unread
+            
+            // Update UI
+            fetchData(); 
+            document.querySelector('.system-msg').innerText = 
+                (type === 'channel' ? '📢 ' : '👤 ') + target;
+            loadChatHistory(target);
+        }
+
+        // --- GỬI TIN NHẮN ---
+        async function sendMessage() {
+            const input = document.getElementById('msg-input');
+            const msg = input.value.trim();
+            if (!msg || !currentTarget) return;
+
+            // Lưu history
+            appendMessageToUI(currentUser, msg, 'sent');
+            if (!chatHistory[currentTarget]) chatHistory[currentTarget] = [];
+            chatHistory[currentTarget].push({ sender: currentUser, msg: msg });
+            saveHistoryToLocal();
+
+            const url = currentType === 'direct' ? '/send-peer' : '/broadcast-peer';
+            const body = {
+                sender: currentUser,
+                msg: msg,
+                target: currentType === 'direct' ? currentTarget : undefined,
+                channel: currentType === 'channel' ? currentTarget : undefined
+            };
+
+            try {
+                await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                input.value = '';
+            } catch (e) {}
+        }
+
+        // --- NHẬN TIN NHẮN ---
+        // async function fetchMessages() {
+        //     if (!currentUser) return;
+        //     try {
+        //         // const response = await fetch(`/get-messages?peer_id=${currentUser}`); 
+        //         //     {
+        //         //     method: 'GET'
+        //         //     // headers: { 'Content-Type': 'application/json' },
+        //         //     // body: JSON.stringify({ peer_id: currentUser })
+        //         // });
+        //         const response = await fetch("/get-messages");
+
+        //         if (response.ok) {
+        //             const data = await response.json();
+        //             if (data.messages && data.messages.length > 0) {
+        //                 data.messages.forEach(m => {
+        //                     const senderID = m.sender; // Tên người gửi hoặc tên Kênh
+                            
+        //                     if (!chatHistory[senderID]) chatHistory[senderID] = [];
+        //                     chatHistory[senderID].push({ sender: senderID, msg: m.message });
+        //                     saveHistoryToLocal();
+
+        //                     if (currentTarget === senderID) {
+        //                         appendMessageToUI(senderID, m.message, 'received');
+        //                     } else {
+        //                         if (!unreadCounts[senderID]) unreadCounts[senderID] = 0;
+        //                         unreadCounts[senderID]++;
+        //                         fetchData();
+        //                         showToast(`📩 ${senderID}: ${m.message}`);
+        //                     }
+        //                 });
+        //             }
+        //         }
+        //     } catch (e) {}
+        // }
+
+
+        // async function fetchMessages() {
+        //     if (!currentUser || !currentTarget || currentType !== 'channel') return;
+
+        //     try {
+        //         const response = await fetch(`/get-messages?channel=${currentTarget}`);
+
+        //         if (response.ok) {
+        //             const data = await response.json();
+
+        //             data.forEach(m => {
+        //                 if (!chatHistory[currentTarget])
+        //                     chatHistory[currentTarget] = [];
+
+        //                 chatHistory[currentTarget].push({
+        //                     sender: m.sender,
+        //                     msg: m.msg
+        //                 });
+
+        //                 saveHistoryToLocal();
+
+        //                 appendMessageToUI(m.sender, m.msg, 'received');
+        //             });
+        //         }
+        //     } catch (e) {}
+        // }
+
+        // async function fetchMessages() {
+        //     if (!currentUser) return;
+
+        //     try {
+        //         const response = await fetch(`/get-messages?peer_id=${currentUser}`);
+
+        //         if (!response.ok) return;
+
+        //         const data = await response.json();
+        //         if (!data.messages) return;
+
+        //         data.messages.forEach(m => {
+        //             const sender = m.sender;       // tên người gửi hoặc tên kênh
+        //             const message = m.message;
+
+        //             if (!chatHistory[sender]) chatHistory[sender] = [];
+        //             chatHistory[sender].push({ sender, msg: message });
+        //             saveHistoryToLocal();
+
+        //             if (currentTarget === sender) {
+        //                 appendMessageToUI(sender, message, 'received');
+        //             } else {
+        //                 if (!unreadCounts[sender]) unreadCounts[sender] = 0;
+        //                 unreadCounts[sender]++;
+        //                 fetchData();
+        //                 showToast(`📩 ${sender}: ${message}`);
+        //             }
+        //         });
+
+        //     } catch (e) {
+        //         console.error("fetchMessages error:", e);
+        //     }
+        // }
+
+        async function fetchMessages() {
+            if (!currentUser) return;
+
+            try {
+                const response = await fetch(`/get-messages?peer_id=${currentUser}`);
+                if (!response.ok) return;
+
+                const data = await response.json();
+                if (!data.messages) return;
+
+                data.messages.forEach(m => {
+                    const sender = m.sender;
+                    const message = m.message;
+
+                    if (!chatHistory[sender]) chatHistory[sender] = [];
+
+                    // Check duplicate
+                    const exists = chatHistory[sender].some(msgObj => msgObj.msg === message);
+                    if (exists) return;
+
+                    chatHistory[sender].push({ sender, msg: message });
+                    saveHistoryToLocal();
+
+                    if (currentTarget === sender) {
+                        appendMessageToUI(sender, message, 'received');
+                    } else {
+                        if (!unreadCounts[sender]) unreadCounts[sender] = 0;
+                        unreadCounts[sender]++;
+                        fetchData();
+                        showToast(`📩 ${sender}: ${message}`);
+                    }
+                });
+
+            } catch (e) {
+                console.error("fetchMessages error:", e);
+            }
+        }
+
+
+
+
+        // --- HELPER UI & STORAGE ---
+        function loadChatHistory(target) {
+            const msgWindow = document.getElementById('message-window');
+            msgWindow.innerHTML = `<div class="system-msg">${currentType === 'channel' ? '📢' : '👤'} ${target}</div>`;
+            const list = chatHistory[target] || [];
+            list.forEach(item => {
+                const type = item.sender === currentUser ? 'sent' : 'received';
+                appendMessageToUI(item.sender, item.msg, type);
+            });
+        }
+
+        function appendMessageToUI(sender, text, type) {
+            const msgWindow = document.getElementById('message-window');
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            
+            let html = `<div class="msg-content">${text}</div>`;
+            // Nếu là tin nhận được và là chat riêng, hiện tên người gửi
+            // Nếu chat kênh, sender chính là tên kênh -> trong content text đã có "Hung: hello"
+            if (type === 'received' && currentType === 'direct') {
+                html = `<div class="msg-sender">${sender}</div>` + html;
+            }
+            div.innerHTML = html;
+            msgWindow.appendChild(div);
+            msgWindow.scrollTop = msgWindow.scrollHeight;
+        }
+
+        function saveHistoryToLocal() {
+            if (currentUser) localStorage.setItem(`hist_${currentUser}`, JSON.stringify(chatHistory));
+        }
+        function loadHistoryFromLocal() {
+            if (currentUser) {
+                const s = localStorage.getItem(`hist_${currentUser}`);
+                if (s) chatHistory = JSON.parse(s);
+            }
+        }
+        function showToast(msg) {
+            const d = document.createElement("div");
+            d.innerText = msg;
+            d.style.cssText = "position:fixed;top:20px;right:20px;background:#333;color:#fff;padding:10px;border-radius:5px;z-index:999";
+            document.body.appendChild(d);
+            setTimeout(() => document.body.removeChild(d), 3000);
+        }
+        const user = localStorage.getItem('peer_name');
         if (!user) {
             window.location.href = "/login.html";
         } else {
