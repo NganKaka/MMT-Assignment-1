@@ -58,6 +58,90 @@ def index(headers="", body=""):
         }
 
 
+
+# @app.route("/login", methods=["POST"])
+# def login(headers="", body=""):
+#     """
+#     Xử lý đăng nhập Admin (Task 1A).
+#     Check username/password cố định là admin/password.
+#     Nếu đúng -> Trả về Set-Cookie: auth=true
+#     """
+#     data = _safe_json(body)
+#     username = data.get("username")
+#     password = data.get("password")
+
+#     # Kiểm tra thông tin đăng nhập (Hardcode theo yêu cầu bài tập)
+#     if username == "admin" and password == "password":
+#         # Trả về cookie auth=true để đánh dấu đã đăng nhập
+#         #return json.dumps({"status": "ok", "message": "Login success"}), 200, {"Set-Cookie": "auth=true; Path=/"}
+#         return "LOGIN_SUCCESS", 200, {"Set-Cookie": "auth=true; Path=/"}
+    
+#     # Sai thông tin
+#     return json.dumps({"status": "fail", "message": "Unauthorized"}), 401
+
+@app.route('/login', methods=['POST'])
+def login(headers, body):
+    """
+    Xử lý đăng nhập.
+    Trả về chuỗi đặc biệt "LOGIN_SUCCESS" hoặc "LOGIN_FAILED" 
+    để httpadapter.py nhận diện và set cookie.
+    """
+    try:
+        # 1. Parse dữ liệu từ body (Client gửi lên dạng JSON)
+        # Body có thể là bytes hoặc string tùy vào quá trình đọc
+        if isinstance(body, bytes):
+            body_str = body.decode("utf-8")
+        else:
+            body_str = str(body)
+
+        # Parse JSON
+        data = json.loads(body_str) if body_str else {}
+        
+        username = data.get("username")
+        password = data.get("password")
+
+        # 2. Kiểm tra thông tin (Hardcode: admin/password)
+        if username == "admin" and password == "password":
+            # QUAN TRỌNG: Phải trả về đúng chuỗi này để khớp với logic trong httpadapter.py
+            return "LOGIN_SUCCESS"
+        else:
+            return "LOGIN_FAILED"
+
+    except Exception as e:
+        print(f"[Login Error] {e}")
+        return "LOGIN_FAILED"
+
+
+@app.route("/", methods=["GET"])
+def index(headers="", body=""):
+    """
+    Trang chủ (Protected).
+    Chỉ hiển thị nếu request có cookie auth=true (Task 1B).
+    """
+    # 1. Lấy Cookie từ headers
+    # headers thường là dict (CaseInsensitiveDict), ta lấy chuỗi Cookie ra
+    cookie_header = headers.get("Cookie", "") if isinstance(headers, dict) else ""
+    
+    # 2. Kiểm tra auth=true có trong chuỗi cookie không
+    if "auth=true" not in cookie_header:
+        # Nếu chưa đăng nhập -> Trả về lỗi 401 Unauthorized
+        return "<h1>401 Unauthorized - Please Login First</h1>", 401
+
+    # 3. Nếu đã có cookie -> Đọc và trả về file index.html như cũ
+    try:
+        with open("./www/index.html", "r", encoding="utf-8") as f:
+            return {
+                "status": "200 OK",
+                "Content-Type": "text/html",
+                "body": f.read()
+            }
+    except:
+        return {
+            "status": "404 Not Found",
+            "Content-Type": "text/html",
+            "body": "<h1>index.html not found</h1>"
+        }
+
 # @app.route("/staticfile", methods=["GET"])
 # def static_files(headers="", body=""):
 #     # headers = {"Query": "file=js/chatui.js"}
