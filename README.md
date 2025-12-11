@@ -1,4 +1,4 @@
-a# Computer Networks - Assignment 1
+# Computer Networks - Assignment 1
 ## Implement HTTP Server and Hybrid Chat Application
 
 **Course:** CO3094 - Computer Networks  
