@@ -115,6 +115,20 @@ class Request():
         
         # 1. Parse Request Line
         self.method, self.path, self.version = self.extract_request_line(request)
+        # --- FIX: Extract query string ---
+        if "?" in self.path:
+            pure_path, query = self.path.split("?", 1)
+            self.query = query
+            self.path = pure_path   # update normalized path
+        else:
+            self.query = ""
+
+        # IMPORTANT: Save query into headers for hook usage
+        # Pass query to headers (for hook functions)
+        if not self.headers:
+            self.headers = {}
+        self.headers["Query"] = self.query
+
         print("[Request] {} path {} version {}".format(self.method, self.path, self.version))
 
         # 2. Setup Route Hooks (From Task 2.2)
@@ -124,7 +138,8 @@ class Request():
             self.hook = routes.get((self.method, self.path))
 
         # 3. Parse Headers
-        self.headers = self.prepare_headers(request)
+        # self.headers = self.prepare_headers(request)
+        self.headers.update(self.prepare_headers(request))
 
         # 4. Parse Cookies (From Task 2.1 - Correct implementation)
         cookies_header = self.headers.get('cookie', '')

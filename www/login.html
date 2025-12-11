@@ -1,136 +1,279 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Login Chat P2P</title>
+    <title>Join P2P Chat</title>
     <style>
-        /* CSS đơn giản, nhìn giống form cổ điển */
-        body { font-family: Arial, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0f0f0; }
-        .login-box { background: white; padding: 40px; border: 1px solid #ccc; box-shadow: 3px 3px 10px #aaa; width: 300px; }
-        h1 { text-align: center; margin-bottom: 20px; }
-        label { display: block; margin-top: 10px; font-weight: bold; }
-        input { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; background-color: #4CAF50; color: white; border: none; margin-top: 20px; cursor: pointer; font-size: 16px; }
-        button:hover { background-color: #45a049; }
-        .error { color: red; text-align: center; margin-top: 10px; display: none; }
+        body { font-family: Arial; background:#f0f0f0; height:100vh; display:flex; justify-content:center; align-items:center;}
+        .box { background:white; padding:30px; width:300px; border:1px solid #ccc; box-shadow:2px 2px 8px #999; }
+        h2 { text-align:center; margin-bottom:20px; }
+        label { font-weight:bold; display:block; margin-top:10px; }
+        input { width:100%; padding:8px; margin-top:5px; box-sizing: border-box; }
+        button { width:100%; padding:10px; background:#4CAF50; color:white; border:none; margin-top:20px; cursor:pointer; }
+        button:hover { background:#45a049; }
+        .err { color:red; text-align:center; display:none; margin-top:10px; }
     </style>
 </head>
 <body>
 
-    <div class="login-box">
-        <h1>Login System</h1>
+<div class="box">
+    <h2>Join P2P Chat</h2>
+
+    <label>Peer Name:</label>
+    <input id="username" placeholder="Ví dụ: Hung">
+
+    <label>Password:</label>
+    <input type="password" id="password" placeholder="Nhập mật khẩu">
+
+    <label>Your Peer IP:</label>
+    <input id="peer-ip" value="127.0.0.1">
+
+    <label>Your Peer Port:</label>
+    <input id="peer-port" value="9001">
+
+    <button onclick="joinPeer()">Tham gia</button>
+    <div id="error" class="err"></div>
+</div>
+
+<script>
+
+async function handleLogin() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const errorMsg = document.getElementById('error-msg');
+
+        try {
+            // Gửi request POST đến server python
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                // Gửi đúng format mà start_sampleapp.py đang đợi
+                body: JSON.stringify({ username: username, password: password })
+            });
+
+            if (response.ok) {
+                // Nếu login thành công (Server trả về 200 OK + Set-Cookie)
+                // Chuyển hướng sang trang index.html
+                window.location.href = "/index.html";
+            } else {
+                // Nếu sai pass (Server trả về 401)
+                errorMsg.style.display = 'block';
+                errorMsg.innerText = "Sai tên đăng nhập hoặc mật khẩu!";
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            errorMsg.style.display = 'block';
+            errorMsg.innerText = "Lỗi kết nối server!";
+        }
+    }
+async function joinPeer() {
+    const name = document.getElementById("username").value.trim();
+    const password = document.getElementById("password").value.trim();
+    const ip = document.getElementById("peer-ip").value.trim();
+    const port = document.getElementById("peer-port").value.trim();
+    const err = document.getElementById("error");
+
+    err.style.display = "none";
+
+    if(!name ||!password || !ip || !port){
+        err.innerText = "Vui lòng nhập đầy đủ thông tin!";
+        err.style.display = "block";
+        return;
+    }
+
+    // Submit thông tin peer lên tracker
+    try {
+        const res = await fetch("/submit-info", {
+            method:"POST",
+            headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify({
+                name: name,
+                password: password,
+                ip: ip,
+                port: port
+            })
+        });
+
+        const data = await res.json();
+
+        if(data.status !== "ok"){
+            err.innerText = data.message || "Lỗi tracker!";
+            err.style.display = "block";
+            return;
+        }
+
+        // Lưu vào localStorage để chat.html dùng
+        localStorage.setItem("peer_name", name);
+        localStorage.setItem("peer_password", password);
+        localStorage.setItem("peer_ip", ip);
+        localStorage.setItem("peer_port", port);
+
+        window.location.href = "chat.html";
+
+    } catch(e){
+        console.error(e);
+        err.innerText = "Không thể kết nối tracker!";
+        err.style.display = "block";
+    }
+}
+</script>
+
+</body>
+</html> -->
+
+
+
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Hệ thống Đăng nhập</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#f4f4f4; height:100vh; display:flex; justify-content:center; align-items:center;}
+        .box { background:white; padding:40px; width:320px; border-radius: 8px; box-shadow:0 4px 15px rgba(0,0,0,0.1); }
+        h2 { text-align:center; margin-bottom:25px; color: #333; }
         
-        <!-- [MỚI] Thêm ô nhập IP -->
-        <label>IP Address:</label>
-        <input type="text" id="ip-addr" value="127.0.0.1" placeholder="Nhập IP (VD: 127.0.0.1)" required>
+        label { font-weight:600; display:block; margin-top:15px; font-size: 14px; color: #555;}
+        input { width:100%; padding:10px; margin-top:5px; box-sizing: border-box; border: 1px solid #ddd; border-radius: 4px; }
+        input:focus { border-color: #4CAF50; outline: none; }
+        
+        .hint { font-size: 12px; color: #888; margin-top: 20px; font-style: italic; border-top: 1px solid #eee; padding-top: 10px;}
 
-        <label>Port (Giả lập):</label>
-        <input type="number" id="port" value="9001" placeholder="9001, 9002..." required>
+        /* 1 Nút Duy Nhất */
+        button { 
+            width:100%; padding:12px; 
+            background: linear-gradient(to right, #4CAF50, #008CBA); 
+            color:white; border:none; border-radius: 4px;
+            margin-top:25px; cursor:pointer; font-weight: bold; font-size: 16px; 
+            transition: opacity 0.3s;
+        }
+        button:hover { opacity: 0.9; }
 
-        <label>Username:</label>
-        <input type="text" id="username" placeholder="Ví dụ: Hung" required>
+        .err { color: #d9534f; text-align:center; display:none; margin-top:15px; font-size: 14px; background: #f9d6d5; padding: 10px; border-radius: 4px;}
+    </style>
+</head>
+<body>
 
-        <label>Password:</label>
-        <input type="password" id="password" placeholder="Mặc định: password" required>
+<div class="box">
+    <h2>System Login</h2>
 
-        <button onclick="submitLogin()">Đăng nhập</button>
-        <div id="error-msg" class="error">Sai mật khẩu hoặc lỗi server!</div>
-    </div>
+    <label>Username / Peer Name:</label>
+    <input id="username" placeholder="Nhập 'admin' hoặc tên Peer">
 
-    <script>
-        async function submitLogin() {
-            // 1. Lấy giá trị từ các ô nhập liệu
-            const ip = document.getElementById('ip-addr').value.trim(); // [MỚI] Lấy IP và xóa khoảng trắng thừa
-            const port = document.getElementById('port').value.trim();
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value.trim();
-            const errorDiv = document.getElementById('error-msg');
+    <label>Password:</label>
+    <input type="password" id="password" placeholder="Nhập mật khẩu">
 
-            // Reset thông báo lỗi cũ
-            errorDiv.style.display = 'none';
+    <div class="hint">Cấu hình Peer (Bỏ qua nếu là Admin):</div>
+    
+    <label>Your IP:</label>
+    <input id="peer-ip" value="127.0.0.1">
 
-            // Kiểm tra dữ liệu đầu vào
-            if (!username || !password || !port || !ip) {
-                alert("Vui lòng nhập đầy đủ IP, Port, Username và Password!");
+    <label>Your Port:</label>
+    <input id="peer-port" value="9001">
+
+    <button onclick="processLogin()">Đăng nhập / Tham gia</button>
+    
+    <div id="error" class="err"></div>
+</div>
+
+<script>
+    async function processLogin() {
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
+        const ip = document.getElementById("peer-ip").value.trim();
+        const port = document.getElementById("peer-port").value.trim();
+        const err = document.getElementById("error");
+
+        // Reset lỗi
+        err.style.display = 'none';
+        err.innerText = "";
+
+        if (!username || !password) {
+            showError("Vui lòng nhập Username và Password!");
+            return;
+        }
+
+        // --- ĐIỀU HƯỚNG LOGIC ---
+        if (username === "admin") {
+            // TRƯỜNG HỢP 1: ADMIN LOGIN (Task 1)
+            await loginAsAdmin(username, password);
+        } else {
+            // TRƯỜNG HỢP 2: PEER JOIN CHAT (Task 2)
+            await joinChatPeer(username, password, ip, port);
+        }
+    }
+
+    // --- Hàm xử lý login Admin ---
+    async function loginAsAdmin(username, password) {
+        try {
+            const response = await fetch('/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: username, password: password })
+            });
+
+            if (response.ok) {
+                // Thành công -> Server đã set cookie -> Vào trang Admin
+                window.location.href = "/index.html";
+            } else {
+                showError("Sai mật khẩu Admin! (Gợi ý: admin/password)");
+            }
+        } catch (error) {
+            console.error(error);
+            showError("Lỗi kết nối Server khi đăng nhập Admin!");
+        }
+    }
+
+    // --- Hàm xử lý tham gia Chat ---
+    async function joinChatPeer(name, password, ip, port) {
+        if (!ip || !port) {
+            showError("Peer cần nhập đủ IP và Port!");
+            return;
+        }
+
+        try {
+            const res = await fetch("/submit-info", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: name,
+                    password: password,
+                    ip: ip,
+                    port: port
+                })
+            });
+
+            const data = await res.json();
+
+            if (data.status !== "ok") {
+                showError(data.message || "Lỗi từ Tracker!");
                 return;
             }
 
-            try {
-                // 2. Gửi yêu cầu đăng nhập lên Server
-                // Lưu ý: Cổng server (tracker) mặc định là 8000
-                const response = await fetch('/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        peer_id: username,  
-                        username: username, // Gửi cả 2 trường để chắc chắn server nhận được
-                        password: password,
-                        ip: ip,             // [MỚI] Gửi IP người dùng nhập lên server
-                        port: port          
-                    })
-                });
+            // Lưu thông tin local để dùng bên trang chat
+            localStorage.setItem("peer_name", name);
+            localStorage.setItem("peer_password", password);
+            localStorage.setItem("peer_ip", ip);
+            localStorage.setItem("peer_port", port);
 
-                // Xử lý phản hồi từ server
-                // Vì server có thể trả về JSON hoặc Text ("LOGIN_SUCCESS") tùy vào loại tài khoản
-                let data;
-                const contentType = response.headers.get("content-type");
-                
-                if (response.ok) {
-                    if (contentType && contentType.includes("application/json")) {
-                        data = await response.json();
-                    } else {
-                        // Trường hợp trả về text (cho Admin Task 1)
-                        const text = await response.text();
-                        // Giả sử server trả về "LOGIN_SUCCESS" cho admin
-                        if (text.includes("SUCCESS")) {
-                            data = { status: "ok" };
-                        } else {
-                             // Fallback nếu text không phải success
-                             try {
-                                 data = JSON.parse(text);
-                             } catch(e) {
-                                 data = { status: "error", message: text };
-                             }
-                        }
-                    }
+            // Chuyển sang trang chat
+            window.location.href = "chat.html";
 
-                    // 3. Nếu đăng nhập thành công
-                    if (data.status === 'ok' || data.status === 'Login Successful') {
-                        // Lưu thông tin vào bộ nhớ trình duyệt để trang Chat dùng
-                        localStorage.setItem('chat_username', username);
-                        localStorage.setItem('chat_ip', ip);     // [MỚI] Lưu IP lại
-                        localStorage.setItem('chat_port', port);
-                        
-                        // Chuyển hướng
-                        // Nếu là Admin -> trang index.html, ngược lại -> chat.html
-                        if (username === 'admin') {
-                            window.location.href = "/index.html";
-                        } else {
-                            window.location.href = "/chat.html";
-                        }
-                    } else {
-                        // Hiện lỗi logic từ server (ví dụ sai pass)
-                        errorDiv.style.display = 'block';
-                        errorDiv.innerText = data.message || "Đăng nhập thất bại!";
-                    }
-                } else {
-                    // Xử lý lỗi HTTP (401, 400, 500)
-                    if (contentType && contentType.includes("application/json")) {
-                         data = await response.json();
-                         errorDiv.innerText = data.message || `Lỗi server: ${response.status}`;
-                    } else {
-                         const text = await response.text();
-                         errorDiv.innerText = text || `Lỗi server: ${response.status}`;
-                    }
-                    errorDiv.style.display = 'block';
-                }
-
-            } catch (error) {
-                console.error("Fetch error:", error);
-                errorDiv.style.display = 'block';
-                errorDiv.innerText = "Lỗi kết nối tới Server! Kiểm tra server tracker đã bật chưa.";
-            }
+        } catch (e) {
+            console.error(e);
+            showError("Không thể kết nối Tracker!");
         }
-    </script>
+    }
+
+    function showError(msg) {
+        const err = document.getElementById("error");
+        err.innerText = msg;
+        err.style.display = 'block';
+    }
+</script>
+
 </body>
 </html>
